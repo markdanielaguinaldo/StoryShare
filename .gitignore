@@ -1,0 +1,9 @@
+bin/
+obj/
+artifacts/
+*.user
+.vs/
+.idea/
+
+# Local editor/agent workspace files, not part of the plugin.
+.claude/

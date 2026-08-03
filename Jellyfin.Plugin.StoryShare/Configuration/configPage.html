@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <title>Story Share</title>
+</head>
+<body>
+<div id="storyShareConfigPage" data-role="page" class="page type-interior pluginConfigurationPage">
+    <div data-role="content">
+        <div class="content-primary">
+            <form id="storyShareConfigForm">
+
+                <h2 style="margin-top:0;">Card appearance</h2>
+
+                <div class="selectContainer">
+                    <label class="selectLabel" for="Theme">Default style</label>
+                    <select is="emby-select" id="Theme" name="Theme" class="emby-select-withcolor emby-select">
+                        <option value="0">Poster — blurred artwork behind the cover</option>
+                        <option value="1">Full bleed — artwork fills the card</option>
+                        <option value="2">Minimal — flat colour, no photographic backdrop</option>
+                        <option value="3">Polaroid — cover in a tilted paper frame</option>
+                        <option value="4">Vinyl — cover cut into a record, spins in the video</option>
+                        <option value="5">Stack — cover fanned out as a pile of cards</option>
+                    </select>
+                    <div class="fieldDescription">Whichever you pick here is preselected in the Story dialog, where it can still be changed per card.</div>
+                </div>
+
+                <div class="selectContainer">
+                    <label class="selectLabel" for="Background">Background</label>
+                    <select is="emby-select" id="Background" name="Background" class="emby-select-withcolor emby-select">
+                        <option value="auto">Match the artwork</option>
+                    </select>
+                    <div class="fieldDescription">
+                        Minimal, Vinyl and Stack paint this colour directly, and Polaroid paints the card itself with
+                        it. Poster and Full bleed keep the item's own artwork behind the card and tint it towards
+                        this colour instead.
+                    </div>
+                </div>
+
+                <div class="inputContainer" id="BackgroundColorRow">
+                    <label class="inputLabel inputLabelUnfocused" for="BackgroundColor">Custom background colour</label>
+                    <input is="emby-input" type="text" id="BackgroundColor" name="BackgroundColor" placeholder="#2E1A47" />
+                    <div class="fieldDescription">Hex colour, used when the background above is set to "Custom colour".</div>
+                </div>
+
+                <div class="inputContainer">
+                    <label class="inputLabel inputLabelUnfocused" for="FooterText">Footer text</label>
+                    <input is="emby-input" type="text" id="FooterText" name="FooterText" />
+                    <div class="fieldDescription">Small line at the bottom of the card. Leave empty to hide it.</div>
+                </div>
+
+                <div class="inputContainer">
+                    <label class="inputLabel inputLabelUnfocused" for="AccentColor">Accent colour</label>
+                    <input is="emby-input" type="text" id="AccentColor" name="AccentColor" placeholder="#00A4DC" />
+                    <div class="fieldDescription">Leave empty to pull the accent from each item's artwork.</div>
+                </div>
+
+                <div class="checkboxContainer checkboxContainer-withDescription">
+                    <label class="emby-checkbox-label">
+                        <input is="emby-checkbox" type="checkbox" id="ShowYear" />
+                        <span>Show the year</span>
+                    </label>
+                </div>
+                <div class="checkboxContainer checkboxContainer-withDescription">
+                    <label class="emby-checkbox-label">
+                        <input is="emby-checkbox" type="checkbox" id="ShowGenres" />
+                        <span>Show genres</span>
+                    </label>
+                </div>
+                <div class="checkboxContainer checkboxContainer-withDescription">
+                    <label class="emby-checkbox-label">
+                        <input is="emby-checkbox" type="checkbox" id="ShowRating" />
+                        <span>Show the community rating</span>
+                    </label>
+                </div>
+                <div class="checkboxContainer checkboxContainer-withDescription">
+                    <label class="emby-checkbox-label">
+                        <input is="emby-checkbox" type="checkbox" id="ShowRuntime" />
+                        <span>Show the runtime</span>
+                    </label>
+                </div>
+
+                <br />
+                <h2>Sharing</h2>
+
+                <div class="checkboxContainer checkboxContainer-withDescription">
+                    <label class="emby-checkbox-label">
+                        <input is="emby-checkbox" type="checkbox" id="InjectClientScript" />
+                        <span>Add a "Story" button to item pages</span>
+                    </label>
+                    <div class="fieldDescription checkboxFieldDescription">
+                        Adds one script tag to jellyfin-web's index.html (backed up first, and removed again when you
+                        untick this). Reload the web client after saving. Jellyfin server updates replace index.html,
+                        so the tag is re-applied on restart.
+                    </div>
+                </div>
+
+                <div class="inputContainer">
+                    <label class="inputLabel inputLabelUnfocused" for="PublicBaseUrl">Public base URL</label>
+                    <input is="emby-input" type="text" id="PublicBaseUrl" name="PublicBaseUrl"
+                           placeholder="https://jellyfin.example.com" />
+                    <div class="fieldDescription">
+                        Needed for share links to work off your network, and required for direct publishing —
+                        Instagram's servers download the image themselves.
+                    </div>
+                </div>
+
+                <div class="inputContainer">
+                    <label class="inputLabel inputLabelUnfocused" for="ShareLinkLifetimeMinutes">Share link lifetime (minutes)</label>
+                    <input is="emby-input" type="number" id="ShareLinkLifetimeMinutes" name="ShareLinkLifetimeMinutes"
+                           min="5" max="10080" />
+                </div>
+
+                <br />
+                <h2>Post directly to Instagram</h2>
+                <p class="fieldDescription" style="margin-bottom:1em;">
+                    Optional. Instagram offers no API for posting to a personal account's story, so this needs a
+                    <strong>Business or Creator</strong> account linked to a Facebook Page, and a long-lived token from a
+                    Meta app with the <code>instagram_basic</code> and <code>instagram_content_publish</code> permissions.
+                    Without it, use the Story button's Download / Open-on-phone flow instead.
+                </p>
+
+                <div class="checkboxContainer checkboxContainer-withDescription">
+                    <label class="emby-checkbox-label">
+                        <input is="emby-checkbox" type="checkbox" id="EnableDirectPublish" />
+                        <span>Enable direct publishing</span>
+                    </label>
+                </div>
+
+                <div class="inputContainer">
+                    <label class="inputLabel inputLabelUnfocused" for="InstagramUserId">Instagram Business account id</label>
+                    <input is="emby-input" type="text" id="InstagramUserId" name="InstagramUserId" />
+                </div>
+
+                <div class="inputContainer">
+                    <label class="inputLabel inputLabelUnfocused" for="InstagramAccessToken">Access token</label>
+                    <input is="emby-input" type="password" id="InstagramAccessToken" name="InstagramAccessToken" />
+                </div>
+
+                <div class="inputContainer">
+                    <label class="inputLabel inputLabelUnfocused" for="GraphApiVersion">Graph API version</label>
+                    <input is="emby-input" type="text" id="GraphApiVersion" name="GraphApiVersion" placeholder="v21.0" />
+                </div>
+
+                <div>
+                    <button is="emby-button" type="button" id="TestConnection" class="raised block">
+                        <span>Test connection</span>
+                    </button>
+                    <div id="TestResult" class="fieldDescription" style="margin-top:.6em;"></div>
+                </div>
+
+                <br />
+                <div>
+                    <button is="emby-button" type="submit" class="raised button-submit block emby-button">
+                        <span>Save</span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script type="text/javascript">
+        (function () {
+            var pluginId = 'b6e3a1c4-5d27-4f8a-9c31-7a0f2d84e5b9';
+            var page = document.querySelector('#storyShareConfigPage');
+
+            var checkboxes = ['ShowYear', 'ShowGenres', 'ShowRating', 'ShowRuntime',
+                'InjectClientScript', 'EnableDirectPublish'];
+            var textFields = ['FooterText', 'AccentColor', 'BackgroundColor', 'PublicBaseUrl',
+                'InstagramUserId', 'InstagramAccessToken', 'GraphApiVersion'];
+
+            var backgroundsLoaded = false;
+
+            // The palette lives in the plugin, so fetch it rather than keeping a
+            // second copy of the list here.
+            function loadBackgrounds() {
+                if (backgroundsLoaded) {
+                    return Promise.resolve();
+                }
+
+                return ApiClient.ajax({
+                    type: 'GET',
+                    url: ApiClient.getUrl('StoryShare/Styles'),
+                    dataType: 'json'
+                }).then(function (styles) {
+                    var select = page.querySelector('#Background');
+                    var list = styles.Backgrounds || styles.backgrounds || [];
+
+                    list.forEach(function (background) {
+                        var option = document.createElement('option');
+                        option.value = background.Id || background.id;
+                        option.textContent = background.Label || background.label;
+                        select.appendChild(option);
+                    });
+
+                    var custom = document.createElement('option');
+                    custom.value = 'custom';
+                    custom.textContent = 'Custom colour…';
+                    select.appendChild(custom);
+
+                    backgroundsLoaded = true;
+                }, function () {
+                    // Leaves just "Match the artwork" and whatever is already saved.
+                    backgroundsLoaded = true;
+                });
+            }
+
+            function syncCustomColour() {
+                var isCustom = page.querySelector('#Background').value === 'custom';
+                page.querySelector('#BackgroundColorRow').style.display = isCustom ? '' : 'none';
+            }
+
+            function load() {
+                Dashboard.showLoadingMsg();
+                Promise.all([ApiClient.getPluginConfiguration(pluginId), loadBackgrounds()]).then(function (results) {
+                    var config = results[0];
+
+                    page.querySelector('#Theme').value = config.Theme || 0;
+                    page.querySelector('#Background').value = config.Background || 'auto';
+                    page.querySelector('#ShareLinkLifetimeMinutes').value = config.ShareLinkLifetimeMinutes;
+
+                    textFields.forEach(function (field) {
+                        page.querySelector('#' + field).value = config[field] || '';
+                    });
+                    checkboxes.forEach(function (field) {
+                        page.querySelector('#' + field).checked = !!config[field];
+                    });
+
+                    syncCustomColour();
+                    Dashboard.hideLoadingMsg();
+                });
+            }
+
+            page.querySelector('#Background').addEventListener('change', syncCustomColour);
+
+            page.addEventListener('pageshow', load);
+
+            page.querySelector('#storyShareConfigForm').addEventListener('submit', function (event) {
+                event.preventDefault();
+                Dashboard.showLoadingMsg();
+
+                ApiClient.getPluginConfiguration(pluginId).then(function (config) {
+                    config.Theme = parseInt(page.querySelector('#Theme').value, 10);
+                    config.Background = page.querySelector('#Background').value || 'auto';
+                    config.ShareLinkLifetimeMinutes =
+                        parseInt(page.querySelector('#ShareLinkLifetimeMinutes').value, 10) || 60;
+
+                    textFields.forEach(function (field) {
+                        config[field] = page.querySelector('#' + field).value.trim();
+                    });
+                    checkboxes.forEach(function (field) {
+                        config[field] = page.querySelector('#' + field).checked;
+                    });
+
+                    ApiClient.updatePluginConfiguration(pluginId, config).then(function (result) {
+                        Dashboard.processPluginConfigurationUpdateResult(result);
+                    });
+                });
+
+                return false;
+            });
+
+            page.querySelector('#TestConnection').addEventListener('click', function () {
+                var output = page.querySelector('#TestResult');
+                output.textContent = 'Checking…';
+
+                ApiClient.ajax({
+                    type: 'GET',
+                    url: ApiClient.getUrl('StoryShare/Status'),
+                    dataType: 'json'
+                }).then(function (status) {
+                    if (!status.DirectPublishConfigured) {
+                        output.textContent = 'No account id or token saved yet. Save the form first.';
+                    } else if (status.Error) {
+                        output.textContent = 'Instagram said: ' + status.Error;
+                    } else {
+                        output.textContent = 'Connected as @' + status.Username + ' (' + status.AccountType + ').'
+                            + (status.HasPublicBaseUrl ? '' : ' Set a public base URL before posting.');
+                    }
+                }, function () {
+                    output.textContent = 'Could not reach the plugin API.';
+                });
+            });
+        })();
+    </script>
+</div>
+</body>
+</html>

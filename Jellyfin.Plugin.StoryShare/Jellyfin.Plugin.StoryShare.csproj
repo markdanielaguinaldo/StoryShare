@@ -1,0 +1,41 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <RootNamespace>Jellyfin.Plugin.StoryShare</RootNamespace>
+    <AssemblyVersion>1.0.0.0</AssemblyVersion>
+    <FileVersion>1.0.0.0</FileVersion>
+    <Version>1.0.0.0</Version>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>true</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <EnableDynamicLoading>true</EnableDynamicLoading>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Provided by the Jellyfin server at runtime: reference only, never ship.
+         These versions must track the target server (10.11.x runs on net9.0). -->
+    <PackageReference Include="Jellyfin.Controller" Version="10.11.11">
+      <ExcludeAssets>runtime</ExcludeAssets>
+    </PackageReference>
+    <PackageReference Include="Jellyfin.Model" Version="10.11.11">
+      <ExcludeAssets>runtime</ExcludeAssets>
+    </PackageReference>
+    <!-- The server already ships SkiaSharp + its native assets; reference the same
+         version so we bind to the server's copy instead of shipping a second one.
+         3.x moved all text drawing from SKPaint onto SKFont. -->
+    <PackageReference Include="SkiaSharp" Version="3.116.1">
+      <ExcludeAssets>runtime</ExcludeAssets>
+    </PackageReference>
+
+    <!-- Pure-managed, no native deps: this one we do ship. -->
+    <PackageReference Include="QRCoder" Version="1.6.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="Configuration\configPage.html" />
+    <EmbeddedResource Include="Web\storyshare.js" />
+  </ItemGroup>
+
+</Project>

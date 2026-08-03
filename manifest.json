@@ -1,0 +1,20 @@
+[
+    {
+        "guid":  "b6e3a1c4-5d27-4f8a-9c31-7a0f2d84e5b9",
+        "name":  "Story Share",
+        "description":  "Share movies, shows and music from your library as an Instagram Story card.",
+        "overview":  "Renders a 1080x1920 story card from any library item, hands it to your phone via QR, and optionally posts it straight to an Instagram Business account.",
+        "owner":  "markdanielaguinaldo",
+        "category":  "General",
+        "versions":  [
+                         {
+                             "version":  "1.0.0.0",
+                             "changelog":  "First public release: six card styles, background presets, still and animated output.",
+                             "targetAbi":  "10.11.0.0",
+                             "sourceUrl":  "https://github.com/markdanielaguinaldo/StoryShare/releases/download/v1.0.0.0/storyshare_1.0.0.0.zip",
+                             "checksum":  "16be3f9504b338e0bdf72cc4648e683c",
+                             "timestamp":  "2026-08-03T10:54:28Z"
+                         }
+                     ]
+    }
+]
