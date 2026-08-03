@@ -14,7 +14,6 @@ public class PluginServiceRegistrator : IPluginServiceRegistrator
         serviceCollection.AddSingleton<StoryCardRenderer>();
         serviceCollection.AddSingleton<VideoAnimationEncoder>();
         serviceCollection.AddSingleton<ShareTokenService>();
-        serviceCollection.AddSingleton<InstagramStoryPublisher>();
         serviceCollection.AddHostedService<ScriptInjectionService>();
     }
 }

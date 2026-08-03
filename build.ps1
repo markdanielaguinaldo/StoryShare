@@ -36,8 +36,8 @@ dotnet publish $project -c $Configuration -o $publish `
     -p:Version=$Version -p:AssemblyVersion=$Version -p:FileVersion=$Version
 if ($LASTEXITCODE -ne 0) { throw "dotnet publish failed with exit code $LASTEXITCODE" }
 
-# Only our own assembly and the one dependency the server does not already provide.
-$shipped = @('Jellyfin.Plugin.StoryShare.dll', 'QRCoder.dll')
+# Every dependency is provided by the server at runtime, so only our own assembly ships.
+$shipped = @('Jellyfin.Plugin.StoryShare.dll')
 foreach ($name in $shipped) {
     $source = Join-Path $publish $name
     if (-not (Test-Path $source)) { throw "Expected build output missing: $name" }
@@ -48,7 +48,7 @@ $meta = [ordered]@{
     guid        = 'b6e3a1c4-5d27-4f8a-9c31-7a0f2d84e5b9'
     name        = 'Story Share'
     description = 'Share movies, shows and music from your library as an Instagram Story card.'
-    overview    = 'Renders a 1080x1920 story card from any library item, hands it to your phone via QR, and optionally posts it straight to an Instagram Business account.'
+    overview    = 'Renders a 1080x1920 story card from any library item in six styles, as a still image or a looping video, and hands it to your phone.'
     owner       = 'markdanielaguinaldo'
     category    = 'General'
     version     = $Version

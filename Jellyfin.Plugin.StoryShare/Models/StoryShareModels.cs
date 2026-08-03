@@ -106,33 +106,6 @@ public class ShareLinkResponse
 
     public DateTime ExpiresAt { get; set; }
 
-    /// <summary>PNG data URI of a QR code pointing at <see cref="Url"/>.</summary>
-    public string QrCode { get; set; } = string.Empty;
-
     /// <summary>False when PublicBaseUrl is unset, meaning the link is LAN-only.</summary>
     public bool IsPubliclyReachable { get; set; }
-}
-
-public class PublishResponse
-{
-    public bool Success { get; set; }
-
-    public string? MediaId { get; set; }
-
-    public string? Error { get; set; }
-}
-
-public class ConnectionStatusResponse
-{
-    public bool DirectPublishEnabled { get; set; }
-
-    public bool DirectPublishConfigured { get; set; }
-
-    public bool HasPublicBaseUrl { get; set; }
-
-    public string? Username { get; set; }
-
-    public string? AccountType { get; set; }
-
-    public string? Error { get; set; }
 }

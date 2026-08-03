@@ -8,7 +8,6 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
-using QRCoder;
 using SkiaSharp;
 
 namespace Jellyfin.Plugin.StoryShare.Api;
@@ -25,7 +24,6 @@ public class StoryShareController : ControllerBase
     private readonly StoryCardRenderer _renderer;
     private readonly VideoAnimationEncoder _videoEncoder;
     private readonly ShareTokenService _tokens;
-    private readonly InstagramStoryPublisher _publisher;
     private readonly ILogger<StoryShareController> _logger;
 
     public StoryShareController(
@@ -33,21 +31,26 @@ public class StoryShareController : ControllerBase
         StoryCardRenderer renderer,
         VideoAnimationEncoder videoEncoder,
         ShareTokenService tokens,
-        InstagramStoryPublisher publisher,
         ILogger<StoryShareController> logger)
     {
         _libraryManager = libraryManager;
         _renderer = renderer;
         _videoEncoder = videoEncoder;
         _tokens = tokens;
-        _publisher = publisher;
         _logger = logger;
     }
 
     private static PluginConfiguration Config =>
         Plugin.Instance?.Configuration ?? new PluginConfiguration();
 
-    /// <summary>Renders the story card for an item. Used by the preview UI.</summary>
+    /// <summary>
+    /// Renders a card directly, for an authenticated caller.
+    ///
+    /// The share dialog does not use this — it mints a signed link and points the
+    /// preview at the anonymous endpoint instead, because iOS will only offer
+    /// "Save to Photos" on a plain URL. This is the way to render one from a script
+    /// without minting a token first.
+    /// </summary>
     [HttpGet("Items/{itemId}/Card")]
     [Produces(MediaTypeNames.Image.Jpeg, "image/png")]
     public async Task<ActionResult> GetCard(
@@ -107,8 +110,8 @@ public class StoryShareController : ControllerBase
     }
 
     /// <summary>
-    /// Mints a signed, expiring link (plus a QR code) so the card can be opened
-    /// on a phone and saved into the Instagram app.
+    /// Mints a signed, expiring link so the card can be opened on a phone and saved
+    /// from there.
     /// </summary>
     [HttpPost("Items/{itemId}/ShareLink")]
     [Produces(MediaTypeNames.Application.Json)]
@@ -117,8 +120,7 @@ public class StoryShareController : ControllerBase
         [FromQuery] CardTheme? theme,
         [FromQuery] string? comment,
         [FromQuery] string? background,
-        [FromQuery] string? format,
-        [FromQuery] bool includeQr = false)
+        [FromQuery] string? format)
     {
         var item = _libraryManager.GetItemById(itemId);
         if (item is null)
@@ -142,57 +144,13 @@ public class StoryShareController : ControllerBase
             Url = url,
             DownloadUrl = url + "?download=true",
             ExpiresAt = DateTime.UtcNow.Add(lifetime),
-            // Opt-in: this endpoint is hit on every preview load, and rendering a QR
-            // PNG for a caller that does not want one is pure waste.
-            QrCode = includeQr ? BuildQrDataUri(url) : string.Empty,
             IsPubliclyReachable = !string.IsNullOrWhiteSpace(config.PublicBaseUrl)
         };
     }
 
-    /// <summary>Posts the card straight to the configured Instagram account's story.</summary>
-    [HttpPost("Items/{itemId}/Publish")]
-    [Produces(MediaTypeNames.Application.Json)]
-    public async Task<ActionResult<PublishResponse>> Publish(
-        [FromRoute] Guid itemId,
-        [FromQuery] CardTheme? theme,
-        [FromQuery] string? comment,
-        [FromQuery] string? background,
-        CancellationToken cancellationToken)
-    {
-        var item = _libraryManager.GetItemById(itemId);
-        if (item is null)
-        {
-            return NotFound();
-        }
-
-        var config = Config;
-        if (string.IsNullOrWhiteSpace(config.PublicBaseUrl))
-        {
-            return new PublishResponse
-            {
-                Success = false,
-                Error = "Set a public base URL in the plugin settings — Instagram's servers download the image themselves, "
-                        + "so a LAN address will not work."
-            };
-        }
-
-        // Meta fetches the image out-of-band, so the token has to outlive the request.
-        var token = _tokens.Create(itemId, theme, comment, background, TimeSpan.FromMinutes(20));
-        var imageUrl = $"{config.PublicBaseUrl.TrimEnd('/')}/StoryShare/Public/{token}.jpg";
-
-        var result = await _publisher.PublishAsync(imageUrl, cancellationToken).ConfigureAwait(false);
-        return result;
-    }
-
-    /// <summary>Reports whether direct publishing is usable, for the settings page.</summary>
-    [HttpGet("Status")]
-    [Produces(MediaTypeNames.Application.Json)]
-    public async Task<ActionResult<ConnectionStatusResponse>> GetStatus(CancellationToken cancellationToken) =>
-        await _publisher.GetStatusAsync(cancellationToken).ConfigureAwait(false);
-
     /// <summary>
-    /// Anonymous, signature-gated card delivery. Needed by both the phone handoff
-    /// and Instagram's own fetcher, neither of which carries a Jellyfin token.
+    /// Anonymous, signature-gated card delivery. Needed by the phone handoff, which
+    /// carries no Jellyfin token.
     /// </summary>
     [HttpGet("Public/{token}")]
     [AllowAnonymous]
@@ -315,13 +273,5 @@ public class StoryShareController : ControllerBase
         }
 
         return $"{Request.Scheme}://{Request.Host}{Request.PathBase}".TrimEnd('/');
-    }
-
-    private static string BuildQrDataUri(string url)
-    {
-        using var generator = new QRCodeGenerator();
-        using var data = generator.CreateQrCode(url, QRCodeGenerator.ECCLevel.M);
-        var png = new PngByteQRCode(data).GetGraphic(8);
-        return "data:image/png;base64," + Convert.ToBase64String(png);
     }
 }

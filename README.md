@@ -8,6 +8,9 @@ Press **Story** on an item's detail page, pick a style and a colour, and the plu
 renders a card from that item's own artwork and metadata as either a still image or a
 looping video, then hands it to your phone.
 
+It does not post anything anywhere: Instagram has no API for posting to a personal
+account's story, so the plugin makes the file and you share it yourself.
+
 ![Card styles rendered with placeholder artwork](docs/themes.png)
 
 *Layout preview rendered with placeholder artwork — real cards use your library's posters and covers.*
@@ -148,9 +151,6 @@ style. Changing the speed means changing the loop length, in `AnimationSpec.Spin
 sends as an attachment, so the browser saves the card. Pick a style and type a caption
 and the card re-renders; there is no refresh button.
 
-The QR code and direct Instagram publishing still exist as API endpoints
-(`ShareLink?includeQr=true` and `Publish`) but have no buttons in the UI.
-
 ### The Jellyfin Android app
 
 The app is a WebView with no download handler, so a link it opens internally can never
@@ -180,26 +180,6 @@ URL: iOS will not offer to save a blob.
 Android Chrome saves normally, but only because the download URL is resolved when the
 dialog opens rather than when the button is clicked — Chrome cancels a download that
 begins after an `await`, since the click's user activation has expired by then.
-
----
-
-## Posting directly to Instagram
-
-Instagram has **no API for posting to a personal account's story.** That is a Meta
-restriction, not a gap in this plugin — so the download flow is the path that works
-for everyone, and it is the default.
-
-Direct publishing works only if all of these are true:
-
-1. Your Instagram account is a **Business or Creator** account linked to a Facebook Page.
-2. You have a Meta app with the `instagram_basic` and `instagram_content_publish`
-   permissions, and a long-lived access token for it.
-3. Your Jellyfin server is reachable from the public internet at the **Public base URL**
-   you set in the plugin settings — Instagram's servers fetch the image themselves,
-   so a LAN address such as `http://192.168.x.x:8096` cannot work.
-
-Fill in the account id and token in the plugin settings and press **Test connection**
-to confirm before relying on it.
 
 ---
 
@@ -237,10 +217,8 @@ by an HMAC signature and an expiry instead.
 | Method | Route | Purpose |
 | --- | --- | --- |
 | `GET` | `/StoryShare/Items/{itemId}/Card?theme=&comment=&background=&format=` | Render the card |
-| `POST` | `/StoryShare/Items/{itemId}/ShareLink?theme=&comment=&background=` | Signed link + QR code |
-| `POST` | `/StoryShare/Items/{itemId}/Publish?theme=&comment=&background=` | Post to Instagram |
+| `POST` | `/StoryShare/Items/{itemId}/ShareLink?theme=&comment=&background=&format=` | Mint a signed, expiring link |
 | `GET` | `/StoryShare/Styles` | Available styles and background presets |
-| `GET` | `/StoryShare/Status` | Is direct publishing usable? |
 | `GET` | `/StoryShare/Public/{token}.jpg` | Anonymous, signature-gated card |
 
 `Styles` exists so neither the settings page nor the share dialog keeps its own copy

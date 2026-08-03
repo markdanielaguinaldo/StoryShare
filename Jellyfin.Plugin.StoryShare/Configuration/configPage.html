@@ -100,8 +100,8 @@
                     <input is="emby-input" type="text" id="PublicBaseUrl" name="PublicBaseUrl"
                            placeholder="https://jellyfin.example.com" />
                     <div class="fieldDescription">
-                        Needed for share links to work off your network, and required for direct publishing —
-                        Instagram's servers download the image themselves.
+                        Needed for share links to work off your network. Leave empty and links use the address the
+                        browser reached the server on, which only works on your LAN.
                     </div>
                 </div>
 
@@ -109,44 +109,6 @@
                     <label class="inputLabel inputLabelUnfocused" for="ShareLinkLifetimeMinutes">Share link lifetime (minutes)</label>
                     <input is="emby-input" type="number" id="ShareLinkLifetimeMinutes" name="ShareLinkLifetimeMinutes"
                            min="5" max="10080" />
-                </div>
-
-                <br />
-                <h2>Post directly to Instagram</h2>
-                <p class="fieldDescription" style="margin-bottom:1em;">
-                    Optional. Instagram offers no API for posting to a personal account's story, so this needs a
-                    <strong>Business or Creator</strong> account linked to a Facebook Page, and a long-lived token from a
-                    Meta app with the <code>instagram_basic</code> and <code>instagram_content_publish</code> permissions.
-                    Without it, use the Story button's Download / Open-on-phone flow instead.
-                </p>
-
-                <div class="checkboxContainer checkboxContainer-withDescription">
-                    <label class="emby-checkbox-label">
-                        <input is="emby-checkbox" type="checkbox" id="EnableDirectPublish" />
-                        <span>Enable direct publishing</span>
-                    </label>
-                </div>
-
-                <div class="inputContainer">
-                    <label class="inputLabel inputLabelUnfocused" for="InstagramUserId">Instagram Business account id</label>
-                    <input is="emby-input" type="text" id="InstagramUserId" name="InstagramUserId" />
-                </div>
-
-                <div class="inputContainer">
-                    <label class="inputLabel inputLabelUnfocused" for="InstagramAccessToken">Access token</label>
-                    <input is="emby-input" type="password" id="InstagramAccessToken" name="InstagramAccessToken" />
-                </div>
-
-                <div class="inputContainer">
-                    <label class="inputLabel inputLabelUnfocused" for="GraphApiVersion">Graph API version</label>
-                    <input is="emby-input" type="text" id="GraphApiVersion" name="GraphApiVersion" placeholder="v21.0" />
-                </div>
-
-                <div>
-                    <button is="emby-button" type="button" id="TestConnection" class="raised block">
-                        <span>Test connection</span>
-                    </button>
-                    <div id="TestResult" class="fieldDescription" style="margin-top:.6em;"></div>
                 </div>
 
                 <br />
@@ -164,10 +126,8 @@
             var pluginId = 'b6e3a1c4-5d27-4f8a-9c31-7a0f2d84e5b9';
             var page = document.querySelector('#storyShareConfigPage');
 
-            var checkboxes = ['ShowYear', 'ShowGenres', 'ShowRating', 'ShowRuntime',
-                'InjectClientScript', 'EnableDirectPublish'];
-            var textFields = ['FooterText', 'AccentColor', 'BackgroundColor', 'PublicBaseUrl',
-                'InstagramUserId', 'InstagramAccessToken', 'GraphApiVersion'];
+            var checkboxes = ['ShowYear', 'ShowGenres', 'ShowRating', 'ShowRuntime', 'InjectClientScript'];
+            var textFields = ['FooterText', 'AccentColor', 'BackgroundColor', 'PublicBaseUrl'];
 
             var backgroundsLoaded = false;
 
@@ -260,27 +220,6 @@
                 return false;
             });
 
-            page.querySelector('#TestConnection').addEventListener('click', function () {
-                var output = page.querySelector('#TestResult');
-                output.textContent = 'Checking…';
-
-                ApiClient.ajax({
-                    type: 'GET',
-                    url: ApiClient.getUrl('StoryShare/Status'),
-                    dataType: 'json'
-                }).then(function (status) {
-                    if (!status.DirectPublishConfigured) {
-                        output.textContent = 'No account id or token saved yet. Save the form first.';
-                    } else if (status.Error) {
-                        output.textContent = 'Instagram said: ' + status.Error;
-                    } else {
-                        output.textContent = 'Connected as @' + status.Username + ' (' + status.AccountType + ').'
-                            + (status.HasPublicBaseUrl ? '' : ' Set a public base URL before posting.');
-                    }
-                }, function () {
-                    output.textContent = 'Could not reach the plugin API.';
-                });
-            });
         })();
     </script>
 </div>

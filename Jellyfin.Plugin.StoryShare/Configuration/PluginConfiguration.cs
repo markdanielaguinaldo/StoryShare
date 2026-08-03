@@ -64,7 +64,7 @@ public class PluginConfiguration : BasePluginConfiguration
 
     /// <summary>
     /// Externally reachable base URL of this server, e.g. https://jellyfin.example.com.
-    /// Required for QR share links to work off-LAN and for direct publishing.
+    /// Required for share links to work off-LAN.
     /// </summary>
     public string PublicBaseUrl { get; set; } = string.Empty;
 
@@ -73,22 +73,6 @@ public class PluginConfiguration : BasePluginConfiguration
 
     /// <summary>HMAC key used to sign share links. Rotating it invalidates existing links.</summary>
     public string SigningKey { get; set; }
-
-    // ----- Direct publishing (Instagram Graph API) -----
-
-    /// <summary>
-    /// Enables the "Post to my story" button. Requires an Instagram Business or
-    /// Creator account plus a publicly reachable <see cref="PublicBaseUrl"/>.
-    /// </summary>
-    public bool EnableDirectPublish { get; set; }
-
-    /// <summary>Instagram Business account id (the IG user id, not the handle).</summary>
-    public string InstagramUserId { get; set; } = string.Empty;
-
-    /// <summary>Long-lived Instagram Graph API access token.</summary>
-    public string InstagramAccessToken { get; set; } = string.Empty;
-
-    public string GraphApiVersion { get; set; } = "v21.0";
 
     // ----- Web UI integration -----
 
