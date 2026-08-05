@@ -15,12 +15,12 @@
                 <div class="selectContainer">
                     <label class="selectLabel" for="Theme">Default style</label>
                     <select is="emby-select" id="Theme" name="Theme" class="emby-select-withcolor emby-select">
-                        <option value="0">Poster — blurred artwork behind the cover</option>
-                        <option value="1">Full bleed — artwork fills the card</option>
-                        <option value="2">Minimal — flat colour, no photographic backdrop</option>
-                        <option value="3">Polaroid — cover in a tilted paper frame</option>
-                        <option value="4">Vinyl — cover cut into a record, spins in the video</option>
-                        <option value="5">Stack — cover fanned out as a pile of cards</option>
+                        <option value="Poster">Poster — blurred artwork behind the cover</option>
+                        <option value="FullBleed">Full bleed — artwork fills the card</option>
+                        <option value="Minimal">Minimal — flat colour, no photographic backdrop</option>
+                        <option value="Polaroid">Polaroid — cover in a tilted paper frame</option>
+                        <option value="Vinyl">Vinyl — cover cut into a record, spins in the video</option>
+                        <option value="Stack">Stack — cover fanned out as a pile of cards</option>
                     </select>
                     <div class="fieldDescription">Whichever you pick here is preselected in the Story dialog, where it can still be changed per card.</div>
                 </div>
@@ -131,6 +131,18 @@
 
             var backgroundsLoaded = false;
 
+            // The API serialises CardTheme by name ("Poster"), so the options above are
+            // named too and the value round-trips untouched. Indexed order, because a
+            // config written by an older build still holds the number.
+            var THEME_NAMES = ['Poster', 'FullBleed', 'Minimal', 'Polaroid', 'Vinyl', 'Stack'];
+
+            function themeName(value) {
+                if (typeof value === 'number') {
+                    return THEME_NAMES[value] || THEME_NAMES[0];
+                }
+                return THEME_NAMES.indexOf(value) >= 0 ? value : THEME_NAMES[0];
+            }
+
             // The palette lives in the plugin, so fetch it rather than keeping a
             // second copy of the list here.
             function loadBackgrounds() {
@@ -175,7 +187,7 @@
                 Promise.all([ApiClient.getPluginConfiguration(pluginId), loadBackgrounds()]).then(function (results) {
                     var config = results[0];
 
-                    page.querySelector('#Theme').value = config.Theme || 0;
+                    page.querySelector('#Theme').value = themeName(config.Theme);
                     page.querySelector('#Background').value = config.Background || 'auto';
                     page.querySelector('#ShareLinkLifetimeMinutes').value = config.ShareLinkLifetimeMinutes;
 
@@ -200,7 +212,7 @@
                 Dashboard.showLoadingMsg();
 
                 ApiClient.getPluginConfiguration(pluginId).then(function (config) {
-                    config.Theme = parseInt(page.querySelector('#Theme').value, 10);
+                    config.Theme = themeName(page.querySelector('#Theme').value);
                     config.Background = page.querySelector('#Background').value || 'auto';
                     config.ShareLinkLifetimeMinutes =
                         parseInt(page.querySelector('#ShareLinkLifetimeMinutes').value, 10) || 60;
