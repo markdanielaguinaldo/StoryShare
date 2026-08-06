@@ -1,6 +1,7 @@
 using Jellyfin.Plugin.StoryShare.Services;
 using MediaBrowser.Controller;
 using MediaBrowser.Controller.Plugins;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 
@@ -14,6 +15,10 @@ public class PluginServiceRegistrator : IPluginServiceRegistrator
         serviceCollection.AddSingleton<StoryCardRenderer>();
         serviceCollection.AddSingleton<VideoAnimationEncoder>();
         serviceCollection.AddSingleton<ShareTokenService>();
-        serviceCollection.AddHostedService<ScriptInjectionService>();
+
+        // Puts the Story button's script tag into index.html as it is served, so
+        // the plugin never has to write to the jellyfin-web directory.
+        serviceCollection.AddSingleton<IStartupFilter, ClientScriptStartupFilter>();
+        serviceCollection.AddHostedService<LegacyTagCleanupService>();
     }
 }

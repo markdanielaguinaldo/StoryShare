@@ -185,10 +185,27 @@ begins after an `await`, since the click's user activation has expired by then.
 
 ## The "Story" button
 
-Jellyfin exposes no client-side plugin API, so the button is added by injecting one
-`<script>` tag into `jellyfin-web/index.html`. The plugin does this only when
-**Add a "Story" button to item pages** is ticked, backs the file up to
-`index.html.storyshare.bak` first, and removes the tag cleanly when you untick it.
+Jellyfin exposes no client-side plugin API, so the button has to reach the web client
+through `jellyfin-web/index.html`. The plugin adds one `<script>` tag to that page
+**as it is served** — a middleware injected into the request pipeline rewrites the
+response on its way out — so nothing on disk is ever touched. It does this only when
+**Add a "Story" button to item pages** is ticked, and the tag is gone from the very
+next page load when you untick it.
+
+Serving it rather than writing it is deliberate. A distro package install puts
+jellyfin-web under `/usr/share/jellyfin/web`, owned by `root`, while the server runs
+as the `jellyfin` user: a plugin that writes to `index.html` there fails with
+`Permission denied` and the button never appears. Versions up to 1.0.0.1 did write to
+the file, so they needed a `chown` before the button would show up on those installs.
+They don't any more, and the leftover tag and its `index.html.storyshare.bak` are
+cleaned up on the first start after upgrading — or simply ignored, if the file still
+isn't writable.
+
+Plugins get a hook into Jellyfin's service collection but not into its request
+pipeline. The way across is an `IStartupFilter`, which ASP.NET Core resolves from that
+collection and wraps around the server's own pipeline setup, so middleware registered
+before the inner call runs ahead of the static-file middleware that serves
+`index.html`. See `Services/ClientScriptMiddleware.cs`.
 
 Because there is no plugin API, the script polls for the detail page's button row
 rather than being told when one appears — and that row exists, empty, while
@@ -199,13 +216,20 @@ holds jellyfin-web's own buttons. Buttons are tagged with the item id they were 
 for and dropped as soon as it changes, so a stale one can never be left pointing at
 the wrong item.
 
-Two more consequences worth knowing:
+One consequence worth knowing: because the tag is injected per response, `index.html`
+is served with `Cache-Control: no-cache` and without an `ETag`. It is a few kilobytes
+and the browser revalidates it on each load; everything jellyfin-web pulls in
+afterwards is cached exactly as before.
 
-- A Jellyfin **server update replaces `index.html`**, wiping the tag. The plugin
-  re-applies it on the next start.
-- If the Jellyfin process cannot write to `index.html` (common in some Docker images),
-  injection is skipped with a warning in the log. Everything else still works — the
-  API endpoints and the plugin's settings page are unaffected.
+If the button still doesn't appear, check the log for this line, written once at
+startup:
+
+```
+StoryShare: web client hook installed
+```
+
+Then hard-refresh the browser (Ctrl+Shift+R, or Cmd+Shift+R on a Mac) — the old
+`index.html` may still be cached from before the upgrade.
 
 ---
 
