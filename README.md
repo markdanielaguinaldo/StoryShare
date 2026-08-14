@@ -78,6 +78,25 @@ The accent colour — chip outlines, the footer dot, the record's rim, the edges
 fanned cards — is pulled from each item's own artwork unless you pin one in the
 settings.
 
+### The footer line
+
+The small line at the bottom of every card is **Footer text** in the settings, and
+`{server}` in it is replaced with this Jellyfin server's own name. The default is
+`Now playing in {server}`, so a fresh install says *Now playing in <your server>*
+without anyone editing anything, and renaming the server in Dashboard → General
+updates every card from then on.
+
+It is read per card rather than captured at startup, and it falls back to `Jellyfin`
+if the server has no name set. Leaving the field **empty** still hides the footer
+entirely — that is what empty has always meant, and the placeholder expansion
+deliberately leaves empty text alone.
+
+> Up to 1.1.0.0 the default was the literal `Now playing in Project Mark` — one
+> particular server's name, hardcoded — so every other install printed a stranger's
+> server on its cards until someone edited it. 1.1.1.0 rewrites exactly that string
+> to `Now playing in {server}` on first load, and touches nothing that was typed by
+> hand.
+
 ### Background colours
 
 A row of swatches in the Story dialog sets the card's background: **Match the
@@ -298,6 +317,10 @@ The key covers everything that changes what a card looks like — the item id, i
 fingerprint of the render-affecting settings. That is why nothing listens for a
 config-changed event: editing the footer text or turning off the runtime chip simply
 makes every card rendered under the old settings unreachable, and they age out.
+
+The server's name is in the key on its own account, not just via the footer text:
+`{server}` expands to it, so renaming the server changes the card without the
+configured footer changing by a single character.
 
 Bounded by **Cache size (MB)** in the settings (64 by default), least-recently-used
 first, with a two-hour backstop. A single card larger than a quarter of the budget is

@@ -48,8 +48,13 @@
 
                 <div class="inputContainer">
                     <label class="inputLabel inputLabelUnfocused" for="FooterText">Footer text</label>
-                    <input is="emby-input" type="text" id="FooterText" name="FooterText" />
-                    <div class="fieldDescription">Small line at the bottom of the card. Leave empty to hide it.</div>
+                    <input is="emby-input" type="text" id="FooterText" name="FooterText"
+                           placeholder="Now playing in {server}" />
+                    <div class="fieldDescription">
+                        Small line at the bottom of the card. Leave empty to hide it.
+                        <code>{server}</code> is replaced with this server's name, so renaming the server in
+                        Dashboard &rarr; General updates every card from then on.
+                    </div>
                 </div>
 
                 <div class="inputContainer">

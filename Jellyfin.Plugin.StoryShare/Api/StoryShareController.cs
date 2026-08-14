@@ -249,7 +249,7 @@ public class StoryShareController : ControllerBase
 
             // The dialog previews a card and then the opened link asks for exactly
             // the same one, so this is a hit on the request that matters most.
-            var key = CardCache.Key(item, theme, comment, background, extension);
+            var key = _cache.Key(item, theme, comment, background, extension);
             if (!_cache.TryGet(key, out var bytes))
             {
                 bytes = wantsVideo

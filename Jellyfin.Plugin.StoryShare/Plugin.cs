@@ -20,6 +20,26 @@ public class Plugin : BasePlugin<PluginConfiguration>, IHasWebPages
         : base(applicationPaths, xmlSerializer)
     {
         Instance = this;
+        MigrateFooterText();
+    }
+
+    /// <summary>
+    /// Rewrites the footer text that older builds shipped as their default.
+    ///
+    /// Up to 1.1.0.0 the default was a literal naming one particular server, so every
+    /// install that never edited it printed a stranger's server name on its cards.
+    /// Only that exact string is touched — anything typed by hand is left alone, and
+    /// a server genuinely called that gets the same words out of <c>{server}</c>.
+    /// </summary>
+    private void MigrateFooterText()
+    {
+        if (!string.Equals(Configuration.FooterText, PluginConfiguration.LegacyFooterText, StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        Configuration.FooterText = "Now playing in {server}";
+        SaveConfiguration();
     }
 
     public static Plugin? Instance { get; private set; }

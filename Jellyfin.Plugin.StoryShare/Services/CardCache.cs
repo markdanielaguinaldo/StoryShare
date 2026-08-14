@@ -29,13 +29,15 @@ public sealed class CardCache
 
     private readonly object _gate = new();
     private readonly Dictionary<string, Entry> _entries = new(StringComparer.Ordinal);
+    private readonly ServerInfo _server;
     private readonly ILogger<CardCache> _logger;
 
     private long _bytes;
     private long _clock;
 
-    public CardCache(ILogger<CardCache> logger)
+    public CardCache(ServerInfo server, ILogger<CardCache> logger)
     {
+        _server = server;
         _logger = logger;
     }
 
@@ -155,8 +157,12 @@ public sealed class CardCache
     /// fingerprint covers a settings change — which is why nothing has to listen for
     /// a configuration-updated event: a card rendered under the old settings simply
     /// stops being reachable.
+    ///
+    /// The server name is in here on its own account: the footer's <c>{server}</c>
+    /// expands to it, so renaming the server changes the card without the configured
+    /// footer text changing by a single character.
     /// </summary>
-    public static string Key(
+    public string Key(
         BaseItem item,
         CardTheme? theme,
         string? comment,
@@ -175,6 +181,7 @@ public sealed class CardCache
             .Append('|').Append(comment ?? string.Empty)
             .Append('|').Append(config.Theme)
             .Append('|').Append(config.FooterText)
+            .Append('|').Append(_server.Name)
             .Append('|').Append(config.AccentColor)
             .Append('|').Append(config.Background)
             .Append('|').Append(config.BackgroundColor)

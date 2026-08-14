@@ -32,11 +32,13 @@ public class StoryCardRenderer
     };
 
     private readonly ArtworkProvider _artwork;
+    private readonly ServerInfo _server;
     private readonly ILogger<StoryCardRenderer> _logger;
 
-    public StoryCardRenderer(ArtworkProvider artwork, ILogger<StoryCardRenderer> logger)
+    public StoryCardRenderer(ArtworkProvider artwork, ServerInfo server, ILogger<StoryCardRenderer> logger)
     {
         _artwork = artwork;
+        _server = server;
         _logger = logger;
     }
 
@@ -138,7 +140,9 @@ public class StoryCardRenderer
         using var bold = CreateTypeface(SKFontStyleWeight.Bold);
         using var regular = CreateTypeface(SKFontStyleWeight.Normal);
 
-        var footerText = options.FooterText ?? config.FooterText;
+        // Expanded here rather than in the footer drawing, so a per-render override
+        // from the API gets the same placeholders the configured text does.
+        var footerText = _server.Expand(options.FooterText ?? config.FooterText);
         var context = new LayoutContext(item, options, config, palette, art, backdrop, footerText, bold, regular);
 
         return theme switch

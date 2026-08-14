@@ -13,6 +13,9 @@ public class PluginServiceRegistrator : IPluginServiceRegistrator
     {
         serviceCollection.AddSingleton<ArtworkProvider>();
         serviceCollection.AddSingleton<CardCache>();
+        // Registered from the host handed to us rather than resolved from the
+        // container, so it cannot depend on whether Jellyfin registers itself.
+        serviceCollection.AddSingleton(new ServerInfo(applicationHost));
         serviceCollection.AddSingleton<StoryCardRenderer>();
         serviceCollection.AddSingleton<VideoAnimationEncoder>();
         serviceCollection.AddSingleton<ShareTokenService>();

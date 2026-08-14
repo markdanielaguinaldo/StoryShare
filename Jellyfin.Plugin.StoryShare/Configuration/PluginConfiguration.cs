@@ -45,8 +45,17 @@ public class PluginConfiguration : BasePluginConfiguration
 
     public CardTheme Theme { get; set; } = CardTheme.Poster;
 
-    /// <summary>Small line of text at the bottom of the card. Empty hides it.</summary>
-    public string FooterText { get; set; } = "Now playing in Project Mark";
+    /// <summary>
+    /// Small line of text at the bottom of the card. Empty hides it.
+    ///
+    /// <c>{server}</c> is replaced with the Jellyfin server's own name, which is why
+    /// the default is not a literal: this shipped hardcoded to one server's name, so
+    /// every other install put a stranger's server on its cards until someone noticed.
+    /// </summary>
+    public string FooterText { get; set; } = "Now playing in {server}";
+
+    /// <summary>The literal this plugin used to ship as the default, migrated on load.</summary>
+    public const string LegacyFooterText = "Now playing in Project Mark";
 
     public bool ShowYear { get; set; } = true;
 

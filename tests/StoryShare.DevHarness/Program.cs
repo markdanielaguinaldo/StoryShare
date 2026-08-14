@@ -18,7 +18,10 @@ MakeArt(posterPath, 800, 1200, new SKColor(0x2B, 0x1B, 0x5E), new SKColor(0xE0, 
 MakeArt(coverPath, 1000, 1000, new SKColor(0x07, 0x3B, 0x3A), new SKColor(0xF2, 0xC4, 0x3D));
 
 var artwork = new ArtworkProvider(new StubFactory(), NullLogger<ArtworkProvider>.Instance);
-var renderer = new StoryCardRenderer(artwork, NullLogger<StoryCardRenderer>.Instance);
+// No application host here, so the name is supplied directly. The default footer is
+// "Now playing in {server}", so any card still showing the literal "{server}" means
+// the placeholder stopped being expanded.
+var renderer = new StoryCardRenderer(artwork, new ServerInfo("Project Mark"), NullLogger<StoryCardRenderer>.Instance);
 
 var movie = new Movie
 {
@@ -108,6 +111,11 @@ await Save("bg-royal-ticket", movie, new StoryCardOptions { Theme = CardTheme.Ti
 await Save("bg-paper-review", movie, new StoryCardOptions { Theme = CardTheme.Review, Background = "paper", Comment = "dark type on pale stock" });
 await Save("bg-teal-cassette", track, new StoryCardOptions { Theme = CardTheme.Cassette, Background = "teal" });
 
+// A per-render footer override has to get the same placeholder treatment the
+// configured one does, and an empty footer still has to hide it entirely.
+await Save("footer-placeholder", movie, new StoryCardOptions { Theme = CardTheme.Minimal, FooterText = "Streaming from {server}" });
+await Save("footer-none", movie, new StoryCardOptions { Theme = CardTheme.Minimal, FooterText = string.Empty });
+
 // Animation: raw RGBA frames. Compared pixel-exactly, mid-loop must differ from
 // the start (there is motion) while the final frame must be nearly back at the
 // start (the loop closes without a visible jump).
@@ -184,6 +192,39 @@ Console.WriteLine($"cassette hubs actually turn        : {tapeHalf > tapeStep * 
 Console.WriteLine($"cassette loop closes cleanly       : {tapeSeam < tapeStep * 1.5}");
 
 Console.WriteLine("Output: " + outDir);
+
+// The footer used to ship hardcoded to one server's name. {server} is what replaced
+// it, so the substitution and — just as importantly — the empty case that switches
+// the footer off both need holding down.
+Console.WriteLine();
+Console.WriteLine("Footer placeholders:");
+var server = new ServerInfo("Project Mark");
+var footerChecks = new (string Label, bool Ok)[]
+{
+    ("expands {server}", server.Expand("Now playing in {server}") == "Now playing in Project Mark"),
+    ("case-insensitive", server.Expand("{SERVER}") == "Project Mark"),
+    ("twice in one line", server.Expand("{server} / {server}") == "Project Mark / Project Mark"),
+    ("leaves other text alone", server.Expand("no placeholder here") == "no placeholder here"),
+    ("empty stays empty (footer off)", server.Expand(string.Empty) == string.Empty),
+    ("null stays null", server.Expand(null) is null),
+    ("blank server name falls back", new ServerInfo("   ").Expand("{server}") == ServerInfo.Fallback),
+};
+
+var footerFailures = 0;
+foreach (var check in footerChecks)
+{
+    Console.WriteLine($"  [{(check.Ok ? "PASS" : "FAIL")}] {check.Label}");
+    if (!check.Ok)
+    {
+        footerFailures++;
+    }
+}
+
+if (footerFailures > 0)
+{
+    Environment.ExitCode = 1;
+}
+
 Console.WriteLine();
 Console.WriteLine("Share token tests:");
 var failures = RenderTest.TokenTests.Run();
