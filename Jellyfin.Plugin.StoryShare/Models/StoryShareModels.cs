@@ -93,6 +93,15 @@ public class BackgroundOption
     public bool IsLight { get; set; }
 }
 
+/// <summary>
+/// Caption text the dialog may offer. Empty means the item has nothing to suggest,
+/// which is the common case for music.
+/// </summary>
+public class CaptionSuggestionResponse
+{
+    public string Tagline { get; set; } = string.Empty;
+}
+
 public class ShareLinkResponse
 {
     public string Url { get; set; } = string.Empty;

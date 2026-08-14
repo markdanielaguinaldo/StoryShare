@@ -62,6 +62,23 @@ await Save("music-polaroid", track, new StoryCardOptions { Theme = CardTheme.Pol
 await Save("longtitle-poster", longTitle, new StoryCardOptions { Theme = CardTheme.Poster });
 await Save("longtitle-stack", longTitle, new StoryCardOptions { Theme = CardTheme.Stack });
 await Save("longtitle-polaroid", longTitle, new StoryCardOptions { Theme = CardTheme.Polaroid, Comment = "a very long comment that has to wrap onto more than one line to be worth testing at all" });
+await Save("longtitle-ticket", longTitle, new StoryCardOptions { Theme = CardTheme.Ticket });
+await Save("music-cassette", track, new StoryCardOptions { Theme = CardTheme.Cassette });
+await Save("ticket-comment", movie, new StoryCardOptions { Theme = CardTheme.Ticket, Comment = "best thing I have seen all year" });
+
+// Review's caption is the review body, so it is the case worth looking at — and
+// the star row has to survive an item with no rating at all.
+await Save("review-comment", movie, new StoryCardOptions
+{
+    Theme = CardTheme.Review,
+    Comment = "Chaotic, exhausting and completely earned. The bagel is a bit much, the googly eyes are not."
+});
+await Save("review-unrated", new Movie
+{
+    Name = "Unrated",
+    ProductionYear = 2024,
+    ImageInfos = new[] { new ItemImageInfo { Path = posterPath, Type = ImageType.Primary } }
+}, new StoryCardOptions { Theme = CardTheme.Review, Comment = "no score, just a note" });
 
 // Every theme has to survive a missing cover — the layouts that build a frame
 // around one (Polaroid, Vinyl) are the easy ones to break here.
@@ -84,6 +101,12 @@ await Save("bg-paper-polaroid", movie, new StoryCardOptions { Theme = CardTheme.
 await Save("bg-ocean-poster", movie, new StoryCardOptions { Theme = CardTheme.Poster, Background = "ocean" });
 await Save("bg-crimson-fullbleed", movie, new StoryCardOptions { Theme = CardTheme.FullBleed, Background = "crimson" });
 await Save("bg-nonsense", movie, new StoryCardOptions { Theme = CardTheme.Minimal, Background = "not-a-preset" });
+// Ticket prints on its own stock, so a pale preset and a deep one both have to
+// keep the printing legible — the same trap Polaroid's caption fell into.
+await Save("bg-paper-ticket", movie, new StoryCardOptions { Theme = CardTheme.Ticket, Background = "paper" });
+await Save("bg-royal-ticket", movie, new StoryCardOptions { Theme = CardTheme.Ticket, Background = "royal" });
+await Save("bg-paper-review", movie, new StoryCardOptions { Theme = CardTheme.Review, Background = "paper", Comment = "dark type on pale stock" });
+await Save("bg-teal-cassette", track, new StoryCardOptions { Theme = CardTheme.Cassette, Background = "teal" });
 
 // Animation: raw RGBA frames. Compared pixel-exactly, mid-loop must differ from
 // the start (there is motion) while the final frame must be nearly back at the
@@ -138,6 +161,27 @@ Console.WriteLine($"vinyl per-frame step               : {spinStep:F2}");
 Console.WriteLine($"vinyl seam step (want <= a step)   : {spinSeam:F2}");
 Console.WriteLine($"vinyl loop closes cleanly          : {spinHalf > 1 && spinSeam < spinStep * 1.5}");
 Console.WriteLine($"vinyl spin slower than before      : {rpm < 30d}");
+
+// Cassette moves something that is not the artwork: its hubs turn once per loop
+// while the label stays put. Same seam rule as Vinyl — a rotation is a whole step
+// short of home at the last frame by design, so what must hold is that the seam
+// step is no larger than an ordinary one.
+var tapeSpec = Jellyfin.Plugin.StoryShare.Models.AnimationSpec.For(CardTheme.Cassette);
+var tapeRaw = new MemoryStream();
+await renderer.RenderFramesAsync(track, new StoryCardOptions { Theme = CardTheme.Cassette }, tapeSpec, tapeRaw, CancellationToken.None);
+buffer = tapeRaw.ToArray();
+
+var tapeStep = MeanDiff(0, 1);
+var tapeSeam = MeanDiff(tapeSpec.FrameCount - 1, 0);
+var tapeHalf = MeanDiff(0, tapeSpec.FrameCount / 2);
+// Motion is measured against a frame step rather than the absolute floor the other
+// styles use: only the two hubs move here, and they are a few percent of the frame,
+// so a whole-frame mean can never reach the same number however well it animates.
+Console.WriteLine($"cassette half-loop diff             : {tapeHalf:F2}");
+Console.WriteLine($"cassette per-frame step            : {tapeStep:F2}");
+Console.WriteLine($"cassette seam step (want <= a step) : {tapeSeam:F2}");
+Console.WriteLine($"cassette hubs actually turn        : {tapeHalf > tapeStep * 3}");
+Console.WriteLine($"cassette loop closes cleanly       : {tapeSeam < tapeStep * 1.5}");
 
 Console.WriteLine("Output: " + outDir);
 Console.WriteLine();

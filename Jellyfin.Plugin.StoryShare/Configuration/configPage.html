@@ -21,6 +21,9 @@
                         <option value="Polaroid">Polaroid — cover in a tilted paper frame</option>
                         <option value="Vinyl">Vinyl — cover cut into a record, spins in the video</option>
                         <option value="Stack">Stack — cover fanned out as a pile of cards</option>
+                        <option value="Ticket">Ticket — cinema stub, torn along a perforation</option>
+                        <option value="Cassette">Cassette — cover as a tape label, hubs turn in the video</option>
+                        <option value="Review">Review — framed card with a five-star row</option>
                     </select>
                     <div class="fieldDescription">Whichever you pick here is preselected in the Story dialog, where it can still be changed per card.</div>
                 </div>
@@ -31,9 +34,9 @@
                         <option value="auto">Match the artwork</option>
                     </select>
                     <div class="fieldDescription">
-                        Minimal, Vinyl and Stack paint this colour directly, and Polaroid paints the card itself with
-                        it. Poster and Full bleed keep the item's own artwork behind the card and tint it towards
-                        this colour instead.
+                        Minimal, Vinyl, Stack, Cassette and Review paint this colour directly, and Polaroid and
+                        Ticket paint the card stock itself with it. Poster and Full bleed keep the item's own
+                        artwork behind the card and tint it towards this colour instead.
                     </div>
                 </div>
 
@@ -86,10 +89,10 @@
                 <div class="checkboxContainer checkboxContainer-withDescription">
                     <label class="emby-checkbox-label">
                         <input is="emby-checkbox" type="checkbox" id="InjectClientScript" />
-                        <span>Add a "Story" button to item pages</span>
+                        <span>Add a share button to item pages</span>
                     </label>
                     <div class="fieldDescription checkboxFieldDescription">
-                        Puts a "Story" button next to Play on movie, show and album pages. Reload the web client
+                        Puts a share icon next to Play on movie, show and album pages. Reload the web client
                         after saving. Nothing is written to disk, so this needs no file permissions and survives
                         Jellyfin server updates.
                     </div>
@@ -112,6 +115,31 @@
                 </div>
 
                 <br />
+                <h2>Performance</h2>
+
+                <div class="checkboxContainer checkboxContainer-withDescription">
+                    <label class="emby-checkbox-label">
+                        <input is="emby-checkbox" type="checkbox" id="CacheEnabled" />
+                        <span>Keep finished cards in memory</span>
+                    </label>
+                    <div class="fieldDescription checkboxFieldDescription">
+                        The same card is usually asked for twice — once for the preview in the dialog, once when
+                        the link is opened — and an animated Vinyl card takes the better part of half a minute to
+                        draw and encode. Cards are dropped automatically when the item's metadata or these
+                        settings change.
+                    </div>
+                </div>
+
+                <div class="inputContainer">
+                    <label class="inputLabel inputLabelUnfocused" for="CacheSizeMb">Cache size (MB)</label>
+                    <input is="emby-input" type="number" id="CacheSizeMb" name="CacheSizeMb" min="8" max="512" />
+                    <div class="fieldDescription">
+                        Least recently used cards are dropped first. A still card is a few hundred KB; a video is
+                        one to three MB.
+                    </div>
+                </div>
+
+                <br />
                 <div>
                     <button is="emby-button" type="submit" class="raised button-submit block emby-button">
                         <span>Save</span>
@@ -126,7 +154,8 @@
             var pluginId = 'b6e3a1c4-5d27-4f8a-9c31-7a0f2d84e5b9';
             var page = document.querySelector('#storyShareConfigPage');
 
-            var checkboxes = ['ShowYear', 'ShowGenres', 'ShowRating', 'ShowRuntime', 'InjectClientScript'];
+            var checkboxes = ['ShowYear', 'ShowGenres', 'ShowRating', 'ShowRuntime', 'InjectClientScript',
+                'CacheEnabled'];
             var textFields = ['FooterText', 'AccentColor', 'BackgroundColor', 'PublicBaseUrl'];
 
             var backgroundsLoaded = false;
@@ -134,7 +163,8 @@
             // The API serialises CardTheme by name ("Poster"), so the options above are
             // named too and the value round-trips untouched. Indexed order, because a
             // config written by an older build still holds the number.
-            var THEME_NAMES = ['Poster', 'FullBleed', 'Minimal', 'Polaroid', 'Vinyl', 'Stack'];
+            var THEME_NAMES = ['Poster', 'FullBleed', 'Minimal', 'Polaroid', 'Vinyl', 'Stack',
+                'Ticket', 'Cassette', 'Review'];
 
             function themeName(value) {
                 if (typeof value === 'number') {
@@ -190,6 +220,9 @@
                     page.querySelector('#Theme').value = themeName(config.Theme);
                     page.querySelector('#Background').value = config.Background || 'auto';
                     page.querySelector('#ShareLinkLifetimeMinutes').value = config.ShareLinkLifetimeMinutes;
+                    // Falls back rather than using ||, so a saved 0 is not silently rewritten.
+                    page.querySelector('#CacheSizeMb').value =
+                        config.CacheSizeMb === undefined ? 64 : config.CacheSizeMb;
 
                     textFields.forEach(function (field) {
                         page.querySelector('#' + field).value = config[field] || '';
@@ -216,6 +249,7 @@
                     config.Background = page.querySelector('#Background').value || 'auto';
                     config.ShareLinkLifetimeMinutes =
                         parseInt(page.querySelector('#ShareLinkLifetimeMinutes').value, 10) || 60;
+                    config.CacheSizeMb = parseInt(page.querySelector('#CacheSizeMb').value, 10) || 64;
 
                     textFields.forEach(function (field) {
                         config[field] = page.querySelector('#' + field).value.trim();

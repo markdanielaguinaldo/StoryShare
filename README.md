@@ -4,7 +4,7 @@ A Jellyfin plugin that turns any movie, episode, album or track in your library 
 a 1080×1920 card ready to post as an Instagram Story — or any other vertical social
 format.
 
-Press **Story** on an item's detail page, pick a style and a colour, and the plugin
+Press the **share** icon on an item's detail page, pick a style and a colour, and the plugin
 renders a card from that item's own artwork and metadata as either a still image or a
 looping video, then hands it to your phone.
 
@@ -59,7 +59,7 @@ Restart Jellyfin, then open **Dashboard → Plugins → Story Share** to configu
 
 ## Card styles
 
-Six, picked per card from the Story dialog's **Style** dropdown, with the default set
+Nine, picked per card from the Story dialog's **Style** dropdown, with the default set
 in the plugin settings:
 
 | Style | What it looks like |
@@ -70,6 +70,9 @@ in the plugin settings:
 | **Polaroid** | Cover square-cropped into a tilted paper card, caption printed on the card below it. |
 | **Vinyl** | Cover cut into a record — grooves, label ring and spindle hole. Spins in the video, at 10 rpm. |
 | **Stack** | Cover fanned out as a pile of cards, the front one face up and in focus. |
+| **Ticket** | Cinema stub: artwork in a wide band, a perforated tear across the bottom and *admit one* printed on the torn-off part. |
+| **Cassette** | Cover as the label on a tape shell. The hubs turn in the video while the label stays put. |
+| **Review** | Framed card, poster small, with a five-star row and your caption set as the review itself. |
 
 The accent colour — chip outlines, the footer dot, the record's rim, the edges of the
 fanned cards — is pulled from each item's own artwork unless you pin one in the
@@ -84,10 +87,11 @@ the default for new cards.
 
 What the background does depends on the style:
 
-- **Minimal, Vinyl, Stack** paint it directly.
-- **Polaroid** paints *the card itself* with it, lifted 18% towards white so it still
-  reads as paper stock rather than a flat swatch, and pushes the surround 60% darker
-  so the card still stands off it. "Match the artwork" keeps the classic white card.
+- **Minimal, Vinyl, Stack, Cassette, Review** paint it directly.
+- **Polaroid** and **Ticket** paint *the card stock itself* with it, lifted 18% towards
+  white so it still reads as paper rather than a flat swatch, and push the surround 60%
+  darker so the card still stands off it. "Match the artwork" keeps the classic white
+  stock.
 - **Poster** and **Full bleed** keep the item's artwork behind the card and pull the
   *blurred backdrop only* towards the chosen colour — the cover itself stays true.
   This uses a `Color` blend, which replaces hue and saturation but leaves luminance
@@ -96,9 +100,9 @@ What the background does depends on the style:
 The two pale presets (**Paper**, **Bone**) flip the card to dark type. That switch is
 driven by relative luminance, so a custom colour light enough to need it gets it too.
 It only applies to the styles that show the background behind the text; Poster and
-Full bleed always sit on their own dark scrim and stay in white type. Polaroid decides
-separately, from the luminance of the *card*, since its caption is printed on the card
-rather than on the background.
+Full bleed always sit on their own dark scrim and stay in white type. Polaroid and
+Ticket decide separately, from the luminance of the *stock*, since their text is
+printed on the card rather than on the background.
 
 Backgrounds travel in the share link, so a card opened on a phone renders in the
 colour you picked. Preset ids and raw hex are interchangeable everywhere:
@@ -143,6 +147,28 @@ runs on its own `AnimationSpec` — 144 frames at 24 fps, a 6 second loop played
 which puts it at 10 rpm and costs roughly 17 s of drawing against 7 s for every other
 style. Changing the speed means changing the loop length, in `AnimationSpec.Spin`.
 
+**Cassette turns its hubs instead of its artwork**, which is the same rule applied to
+something that is not the cover: a label that spun would be nonsense, so the two hubs
+rotate exactly one turn per loop while everything else does the ordinary push-in. The
+harness checks it the way it checks Vinyl — the seam has to be no bigger a step than
+any other frame — but measures the motion relative to a frame step rather than against
+an absolute floor, because two hubs are a few percent of the frame and a whole-frame
+mean could never reach the number the other styles hit.
+
+---
+
+## Captions
+
+The **Caption on the card** box is free text, and nothing goes in it unless you type
+it. When an item has a tagline in its metadata, the dialog offers it underneath —
+`Use the tagline: "…"` — and clicking that just types the tagline into the box, where
+it can be edited or deleted like anything else. It is never applied on its own: plenty
+of taglines are marketing copy nobody wants on their story. Items without one, which
+is most music, show no offer at all.
+
+Review is the style built around the caption: it sets it as body copy without quote
+marks, over four lines rather than three, because there the caption *is* the review.
+
 ---
 
 ## Getting the card onto a phone
@@ -183,13 +209,18 @@ begins after an `await`, since the click's user activation has expired by then.
 
 ---
 
-## The "Story" button
+## The share button
+
+A share icon in the detail page's button row, with no text label — it sits among
+jellyfin-web's own icon buttons and matching them keeps the row clean. The icon is
+`aria-hidden`, so with no visible text the button carries its own `aria-label`;
+`title` alone is not reliably announced.
 
 Jellyfin exposes no client-side plugin API, so the button has to reach the web client
 through `jellyfin-web/index.html`. The plugin adds one `<script>` tag to that page
 **as it is served** — a middleware injected into the request pipeline rewrites the
 response on its way out — so nothing on disk is ever touched. It does this only when
-**Add a "Story" button to item pages** is ticked, and the tag is gone from the very
+**Add a share button to item pages** is ticked, and the tag is gone from the very
 next page load when you untick it.
 
 Serving it rather than writing it is deliberate. A distro package install puts
@@ -243,6 +274,7 @@ by an HMAC signature and an expiry instead.
 | `GET` | `/StoryShare/Items/{itemId}/Card?theme=&comment=&background=&format=` | Render the card |
 | `POST` | `/StoryShare/Items/{itemId}/ShareLink?theme=&comment=&background=&format=` | Mint a signed, expiring link |
 | `GET` | `/StoryShare/Styles` | Available styles and background presets |
+| `GET` | `/StoryShare/Items/{itemId}/Caption` | The item's tagline, if it has one, for the dialog to offer |
 | `GET` | `/StoryShare/Public/{token}.jpg` | Anonymous, signature-gated card |
 
 `Styles` exists so neither the settings page nor the share dialog keeps its own copy
@@ -253,6 +285,28 @@ Share links are signed with a key generated on first run and stored in the plugi
 config. Changing it invalidates every outstanding link. The background was added to
 the token payload *after* the expiry rather than beside the theme, so links minted
 before it existed still parse and still render.
+
+### Caching
+
+Finished cards are held in memory, because the flow asks for the same one twice: the
+dialog renders a preview, then the link that gets opened renders it again. A Vinyl
+video is ~17 s of drawing plus two ffmpeg passes, so the second request is worth not
+paying for.
+
+The key covers everything that changes what a card looks like — the item id, its
+`DateModified` and `DateLastSaved`, the style, background, format and caption, plus a
+fingerprint of the render-affecting settings. That is why nothing listens for a
+config-changed event: editing the footer text or turning off the runtime chip simply
+makes every card rendered under the old settings unreachable, and they age out.
+
+Bounded by **Cache size (MB)** in the settings (64 by default), least-recently-used
+first, with a two-hour backstop. A single card larger than a quarter of the budget is
+not stored at all — it would evict everything else to keep one thing. Only completed
+renders are cached: two identical requests arriving at the same moment both draw. The
+alternative, sharing one in-flight task, would let one caller's cancellation kill
+another caller's render, and the flows that repeat a card are sequential anyway.
+
+Turn it off with **Keep finished cards in memory**.
 
 ---
 
@@ -295,8 +349,9 @@ dotnet run --project tests/StoryShare.DevHarness
 
 It writes the cards to `tests/StoryShare.DevHarness/bin/Release/net9.0/out/` and exits
 non-zero if a token test fails. It covers every style with and without artwork, the
-pale presets, a raw hex background, and both animation loops. Worth a look after any
-change to the renderer.
+pale presets, a raw hex background, and all three animation loops — the ordinary
+push-in, Vinyl's spin and Cassette's turning hubs. Worth a look after any change to
+the renderer: byte counts alone have caught bugs, but layout regressions need eyes.
 
 ---
 

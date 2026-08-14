@@ -44,6 +44,16 @@ internal sealed class CardScene : IDisposable
     /// </summary>
     public Action<SKCanvas>? DrawUnderArt { get; init; }
 
+    /// <summary>
+    /// Vector decoration drawn over the artwork every frame, given the loop phase.
+    ///
+    /// This is the way to move something other than the artwork itself — the
+    /// cassette's hubs turn while its label stays put. Whatever it draws still has
+    /// to be back where it started at phase 1, so a rotation here must be a whole
+    /// number of turns per loop, exactly as <see cref="Spin"/> is.
+    /// </summary>
+    public Action<SKCanvas, float>? DrawOverArt { get; init; }
+
     /// <summary>Baked layer drawn over the artwork but still inside the tilt.</summary>
     public SKImage? TiltedOverlay { get; init; }
 
@@ -95,6 +105,8 @@ internal sealed class CardScene : IDisposable
         {
             DrawArtPanel(canvas, swell, phase);
         }
+
+        DrawOverArt?.Invoke(canvas, phase);
 
         if (TiltedOverlay is not null)
         {

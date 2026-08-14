@@ -24,6 +24,7 @@ public class StoryShareController : ControllerBase
     private readonly StoryCardRenderer _renderer;
     private readonly VideoAnimationEncoder _videoEncoder;
     private readonly ShareTokenService _tokens;
+    private readonly CardCache _cache;
     private readonly ILogger<StoryShareController> _logger;
 
     public StoryShareController(
@@ -31,12 +32,14 @@ public class StoryShareController : ControllerBase
         StoryCardRenderer renderer,
         VideoAnimationEncoder videoEncoder,
         ShareTokenService tokens,
+        CardCache cache,
         ILogger<StoryShareController> logger)
     {
         _libraryManager = libraryManager;
         _renderer = renderer;
         _videoEncoder = videoEncoder;
         _tokens = tokens;
+        _cache = cache;
         _logger = logger;
     }
 
@@ -107,6 +110,32 @@ public class StoryShareController : ControllerBase
                 ? BackgroundPresets.Auto
                 : config.Background
         };
+    }
+
+    /// <summary>
+    /// Text the dialog can offer to drop into the caption box.
+    ///
+    /// A suggestion, never an application: the caption stays empty unless the user
+    /// asks for this, and once it is in the box it is ordinary editable text. An
+    /// item with no tagline returns an empty string and the dialog shows no button.
+    /// </summary>
+    [HttpGet("Items/{itemId}/Caption")]
+    [Produces(MediaTypeNames.Application.Json)]
+    public ActionResult<CaptionSuggestionResponse> GetCaptionSuggestion([FromRoute] Guid itemId)
+    {
+        var item = _libraryManager.GetItemById(itemId);
+        if (item is null)
+        {
+            return NotFound();
+        }
+
+        var tagline = item.Tagline?.Trim() ?? string.Empty;
+        if (tagline.Length > 180)
+        {
+            tagline = tagline[..180].TrimEnd();
+        }
+
+        return new CaptionSuggestionResponse { Tagline = tagline };
     }
 
     /// <summary>
@@ -218,13 +247,21 @@ public class StoryShareController : ControllerBase
         {
             var options = new StoryCardOptions { Theme = theme, Comment = comment, Background = background };
 
-            var bytes = wantsVideo
-                ? await _videoEncoder.RenderAsync(item, options, cancellationToken).ConfigureAwait(false)
-                : await _renderer.RenderAsync(
-                    item,
-                    options,
-                    wantsPng ? SKEncodedImageFormat.Png : SKEncodedImageFormat.Jpeg,
-                    cancellationToken).ConfigureAwait(false);
+            // The dialog previews a card and then the opened link asks for exactly
+            // the same one, so this is a hit on the request that matters most.
+            var key = CardCache.Key(item, theme, comment, background, extension);
+            if (!_cache.TryGet(key, out var bytes))
+            {
+                bytes = wantsVideo
+                    ? await _videoEncoder.RenderAsync(item, options, cancellationToken).ConfigureAwait(false)
+                    : await _renderer.RenderAsync(
+                        item,
+                        options,
+                        wantsPng ? SKEncodedImageFormat.Png : SKEncodedImageFormat.Jpeg,
+                        cancellationToken).ConfigureAwait(false);
+
+                _cache.Set(key, bytes);
+            }
 
             var fileName = BuildFileName(item.Name, extension);
             Response.Headers.ContentDisposition = BuildContentDisposition(fileName, asAttachment);

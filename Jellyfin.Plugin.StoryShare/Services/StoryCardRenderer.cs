@@ -106,9 +106,13 @@ public class StoryCardRenderer
 
     // ---------------------------------------------------------------- scene setup
 
-    /// <summary>Themes that paint a flat background instead of the item's own artwork.</summary>
+    /// <summary>
+    /// Themes that paint a flat background instead of the item's own artwork.
+    /// Stated as the exceptions, because only two styles put the item's own
+    /// photograph behind the card and every style added since has been flat.
+    /// </summary>
     private static bool IsFlat(CardTheme theme) =>
-        theme is CardTheme.Minimal or CardTheme.Polaroid or CardTheme.Vinyl or CardTheme.Stack;
+        theme is not (CardTheme.Poster or CardTheme.FullBleed);
 
     private async Task<CardScene> BuildSceneAsync(
         BaseItem item,
@@ -142,6 +146,9 @@ public class StoryCardRenderer
             CardTheme.Polaroid => BuildPolaroid(context),
             CardTheme.Vinyl => BuildVinyl(context),
             CardTheme.Stack => BuildStack(context),
+            CardTheme.Ticket => BuildTicket(context),
+            CardTheme.Cassette => BuildCassette(context),
+            CardTheme.Review => BuildReview(context),
             _ => BuildClassic(theme, context)
         };
     }
@@ -684,6 +691,563 @@ public class StoryCardRenderer
         return surface.Snapshot();
     }
 
+    // ---------------------------------------------------------------- ticket
+
+    private CardScene BuildTicket(LayoutContext context)
+    {
+        const float TicketWidth = 780f;
+        const float Pad = 40f;
+        const float BandAspect = 1.62f;
+        const float BandGap = 36f;
+        const float StubGap = 34f;
+        const float StubHeight = 176f;
+        const float NotchRadius = 26f;
+        const float Corner = 18f;
+
+        var stock = PaperStock(context.Palette.Background);
+
+        // Printed on the ticket, so contrast follows the stock rather than the
+        // surround — the same reasoning as Polaroid's caption.
+        var print = context.Palette with { LightText = ColorMath.IsLight(stock.Top) };
+        var lines = BuildTextBlock(context, print, SpecFor(CardTheme.Ticket));
+        var textHeight = TotalHeight(lines);
+
+        var available = context.ContentBottom(90f) - Card.SafeTop;
+        var bandWidth = TicketWidth - (Pad * 2);
+
+        // A cover cropped to a wide band, not the whole poster: a ticket's image
+        // strip is landscape, and a 2:3 poster printed at this width would make the
+        // ticket taller than the card.
+        var bandHeight = context.Art is null ? 0f : bandWidth / BandAspect;
+
+        float TicketHeight(float band) =>
+            Pad + band + (band > 0f ? BandGap : 0f) + textHeight + StubGap + StubHeight;
+
+        if (bandHeight > 0f && TicketHeight(bandHeight) > available)
+        {
+            bandHeight = Math.Max(200f, bandHeight - (TicketHeight(bandHeight) - available));
+        }
+
+        var height = TicketHeight(bandHeight);
+        var top = Card.SafeTop + Math.Max(0f, (available - height) / 2f);
+        var ticketRect = SKRect.Create(Card.CenterX - (TicketWidth / 2f), top, TicketWidth, height);
+
+        var bandRect = bandHeight > 0f
+            ? SKRect.Create(Card.CenterX - (bandWidth / 2f), top + Pad, bandWidth, bandHeight)
+            : SKRect.Empty;
+
+        var textTop = bandHeight > 0f ? bandRect.Bottom + BandGap : top + Pad;
+        var perforationY = ticketRect.Bottom - StubHeight;
+
+        // Baked rather than redrawn per frame: unlike Polaroid this card is never
+        // rotated, so its straight edges are still landing on whole pixels.
+        var decorLayer = BuildTicketLayer(ticketRect, bandRect, perforationY, NotchRadius, Corner, stock);
+
+        var stubFacts = string.Join("  ·  ", BuildFacts(context.Item, context.Config)
+            .Select(fact => fact.Length > 0 && fact[0] == ChipRow.StarMarker ? fact[1..].TrimStart() : fact));
+
+        var printLayer = BuildOverlayLayer(
+            lines,
+            textTop,
+            null,
+            canvas => DrawStub(canvas, ticketRect, perforationY, stubFacts, print, context.Bold, context.Regular));
+        Dispose(lines);
+
+        var textLayer = BuildOverlayLayer(Array.Empty<IStoryLine>(), 0f, Footer(context), null);
+
+        return new CardScene
+        {
+            Theme = CardTheme.Ticket,
+            Palette = context.Palette with { Background = Recede(context.Palette.Background), LightText = false },
+            Art = context.Art,
+            ArtImage = ArtImageFor(context.Art, bandRect),
+            DecorLayer = decorLayer,
+            TiltedOverlay = printLayer,
+            TextLayer = textLayer,
+            ArtRect = bandRect,
+            ArtCorner = 6f,
+            ArtBorder = false
+        };
+    }
+
+    /// <summary>Shadow, ticket stock, the torn perforation and the image plate.</summary>
+    private static SKImage BuildTicketLayer(
+        SKRect ticket,
+        SKRect band,
+        float perforationY,
+        float notchRadius,
+        float corner,
+        PaperStockColors stock)
+    {
+        using var surface = SKSurface.Create(
+            new SKImageInfo(Card.Width, Card.Height, SKColorType.Rgba8888, SKAlphaType.Premul));
+        var canvas = surface.Canvas;
+        canvas.Clear(SKColors.Transparent);
+
+        using var body = TicketPath(ticket, perforationY, notchRadius, corner);
+
+        using (var shadow = new SKPaint
+        {
+            IsAntialias = true,
+            Color = new SKColor(0, 0, 0, 190),
+            ImageFilter = SKImageFilter.CreateDropShadowOnly(0, 24f, 30f, 30f, new SKColor(0, 0, 0, 190))
+        })
+        {
+            canvas.DrawPath(body, shadow);
+        }
+
+        using (var fill = new SKPaint
+        {
+            IsAntialias = true,
+            Shader = SKShader.CreateLinearGradient(
+                new SKPoint(ticket.Left, ticket.Top),
+                new SKPoint(ticket.Right, ticket.Bottom),
+                new[] { stock.Top, stock.Bottom },
+                null,
+                SKShaderTileMode.Clamp)
+        })
+        {
+            canvas.DrawPath(body, fill);
+        }
+
+        using (var edge = new SKPaint
+        {
+            Style = SKPaintStyle.Stroke,
+            StrokeWidth = 2f,
+            IsAntialias = true,
+            Color = stock.Edge
+        })
+        {
+            canvas.DrawPath(body, edge);
+        }
+
+        // The tear line. It stops short of the notches so the dashes do not run out
+        // into the bites taken from the edges.
+        using (var perforation = new SKPaint
+        {
+            Style = SKPaintStyle.Stroke,
+            StrokeWidth = 3f,
+            IsAntialias = true,
+            Color = stock.Edge,
+            PathEffect = SKPathEffect.CreateDash(new[] { 12f, 12f }, 0f)
+        })
+        {
+            canvas.DrawLine(
+                ticket.Left + notchRadius + 12f,
+                perforationY,
+                ticket.Right - notchRadius - 12f,
+                perforationY,
+                perforation);
+        }
+
+        if (!band.IsEmpty)
+        {
+            using var plate = new SKPaint { IsAntialias = true, Color = new SKColor(0x14, 0x15, 0x18) };
+            canvas.DrawRoundRect(new SKRoundRect(band, 6f), plate);
+        }
+
+        return surface.Snapshot();
+    }
+
+    /// <summary>The ticket outline, with a semicircle bitten out of each edge at the tear.</summary>
+    private static SKPath TicketPath(SKRect ticket, float perforationY, float notchRadius, float corner)
+    {
+        var body = new SKPath();
+        body.AddRoundRect(new SKRoundRect(ticket, corner));
+
+        using var notches = new SKPath();
+        notches.AddCircle(ticket.Left, perforationY, notchRadius);
+        notches.AddCircle(ticket.Right, perforationY, notchRadius);
+
+        // Op returns null if Skia cannot resolve the operation; the un-notched
+        // outline is a perfectly serviceable ticket, so fall back to it.
+        var cut = body.Op(notches, SKPathOp.Difference);
+        if (cut is null)
+        {
+            return body;
+        }
+
+        body.Dispose();
+        return cut;
+    }
+
+    private static void DrawStub(
+        SKCanvas canvas,
+        SKRect ticket,
+        float perforationY,
+        string facts,
+        Palette palette,
+        SKTypeface bold,
+        SKTypeface regular)
+    {
+        // Letterspaced by hand: SKFont exposes no tracking, and "ADMIT ONE" set
+        // solid does not read as ticket printing.
+        using (var font = new SKFont(bold, 34f) { Edging = SKFontEdging.SubpixelAntialias })
+        using (var paint = new SKPaint { IsAntialias = true, Color = palette.Title })
+        {
+            canvas.DrawText("A D M I T   O N E", Card.CenterX, perforationY + 62f, SKTextAlign.Center, font, paint);
+        }
+
+        if (!string.IsNullOrEmpty(facts))
+        {
+            using var font = new SKFont(regular, 26f) { Edging = SKFontEdging.SubpixelAntialias };
+            using var paint = new SKPaint { IsAntialias = true, Color = palette.Muted };
+            canvas.DrawText(facts, Card.CenterX, perforationY + 104f, SKTextAlign.Center, font, paint);
+        }
+
+        DrawBarcode(
+            canvas,
+            SKRect.Create(Card.CenterX - 210f, perforationY + 122f, 420f, 38f),
+            palette.Title.WithAlpha(210),
+            StableHash(facts));
+    }
+
+    /// <summary>
+    /// Decorative bars. Seeded from a stable hash rather than <c>string.GetHashCode</c>,
+    /// which is randomised per process — the same card has to come out identical on
+    /// every render, or a cached copy and a fresh one would not match.
+    /// </summary>
+    private static void DrawBarcode(SKCanvas canvas, SKRect area, SKColor color, uint seed)
+    {
+        using var paint = new SKPaint { Color = color, IsAntialias = true };
+
+        var state = seed | 1u;
+        var x = area.Left;
+
+        while (x < area.Right)
+        {
+            state = (state * 1664525u) + 1013904223u;
+            var width = 3f + ((state >> 16) % 5);
+            var gap = 3f + ((state >> 8) % 4);
+
+            var drawn = Math.Min(width, area.Right - x);
+            if (drawn > 0f)
+            {
+                canvas.DrawRect(SKRect.Create(x, area.Top, drawn, area.Height), paint);
+            }
+
+            x += width + gap;
+        }
+    }
+
+    private static uint StableHash(string? value)
+    {
+        unchecked
+        {
+            var hash = 2166136261u;
+            foreach (var c in value ?? string.Empty)
+            {
+                hash ^= c;
+                hash *= 16777619u;
+            }
+
+            return hash;
+        }
+    }
+
+    // ---------------------------------------------------------------- cassette
+
+    private CardScene BuildCassette(LayoutContext context)
+    {
+        // A C-cassette shell is 100x64mm, and looking wrong here is immediately
+        // obvious to anyone who has held one.
+        const float BodyWidth = 880f;
+        const float BodyAspect = 1.5625f;
+        const float Gap = 88f;
+        const float Corner = 20f;
+
+        var lines = BuildTextBlock(context, context.Palette, SpecFor(CardTheme.Cassette));
+        var textHeight = TotalHeight(lines);
+
+        var bodyHeight = BodyWidth / BodyAspect;
+        var available = context.ContentBottom() - Card.SafeTop;
+        var top = Card.SafeTop + Math.Max(0f, (available - (bodyHeight + Gap + textHeight)) / 2f);
+
+        var bodyRect = SKRect.Create(Card.CenterX - (BodyWidth / 2f), top, BodyWidth, bodyHeight);
+
+        // The label sticker across the top, and the tape window below it.
+        var labelRect = SKRect.Create(
+            bodyRect.Left + 38f,
+            bodyRect.Top + 32f,
+            BodyWidth - 76f,
+            bodyHeight * 0.48f);
+
+        var windowRect = SKRect.Create(
+            bodyRect.Left + 122f,
+            labelRect.Bottom + 24f,
+            BodyWidth - 244f,
+            bodyHeight * 0.32f);
+
+        var hubRadius = windowRect.Height * 0.28f;
+        var leftHub = new SKPoint(windowRect.Left + (windowRect.Width * 0.23f), windowRect.MidY);
+        var rightHub = new SKPoint(windowRect.Left + (windowRect.Width * 0.77f), windowRect.MidY);
+
+        var decorLayer = BuildCassetteLayer(bodyRect, labelRect, windowRect, leftHub, rightHub, hubRadius, context.Palette, Corner);
+        var textLayer = BuildOverlayLayer(lines, bodyRect.Bottom + Gap, Footer(context), null);
+        Dispose(lines);
+
+        return new CardScene
+        {
+            Theme = CardTheme.Cassette,
+            Palette = context.Palette,
+            Art = context.Art,
+            ArtImage = ArtImageFor(context.Art, labelRect),
+            DecorLayer = decorLayer,
+            TextLayer = textLayer,
+            ArtRect = labelRect,
+            ArtCorner = 8f,
+            ArtBorder = false,
+            // The hubs turn instead of the artwork — a cassette whose label spun
+            // would be nonsense. Exactly one turn per loop, so the seam closes.
+            DrawOverArt = (canvas, phase) =>
+                DrawHubs(canvas, leftHub, rightHub, hubRadius, phase, context.Palette)
+        };
+    }
+
+    /// <summary>Shell, label plate, tape window and the static tape packs.</summary>
+    private static SKImage BuildCassetteLayer(
+        SKRect body,
+        SKRect label,
+        SKRect window,
+        SKPoint leftHub,
+        SKPoint rightHub,
+        float hubRadius,
+        Palette palette,
+        float corner)
+    {
+        using var surface = SKSurface.Create(
+            new SKImageInfo(Card.Width, Card.Height, SKColorType.Rgba8888, SKAlphaType.Premul));
+        var canvas = surface.Canvas;
+        canvas.Clear(SKColors.Transparent);
+
+        var shell = new SKRoundRect(body, corner);
+
+        using (var shadow = new SKPaint
+        {
+            IsAntialias = true,
+            Color = new SKColor(0, 0, 0, 190),
+            ImageFilter = SKImageFilter.CreateDropShadowOnly(0, 24f, 32f, 32f, new SKColor(0, 0, 0, 190))
+        })
+        {
+            canvas.DrawRoundRect(shell, shadow);
+        }
+
+        // Smoked plastic, tinted towards the accent so the shell picks up the
+        // artwork's colour the way every other style does.
+        using (var plastic = new SKPaint
+        {
+            IsAntialias = true,
+            Shader = SKShader.CreateLinearGradient(
+                new SKPoint(body.Left, body.Top),
+                new SKPoint(body.Right, body.Bottom),
+                new[]
+                {
+                    ColorMath.Lerp(new SKColor(0x2A, 0x2C, 0x33), palette.Accent, 0.22f),
+                    new SKColor(0x14, 0x15, 0x1A)
+                },
+                null,
+                SKShaderTileMode.Clamp)
+        })
+        {
+            canvas.DrawRoundRect(shell, plastic);
+        }
+
+        using (var edge = new SKPaint
+        {
+            Style = SKPaintStyle.Stroke,
+            StrokeWidth = 2f,
+            IsAntialias = true,
+            Color = new SKColor(255, 255, 255, 40)
+        })
+        {
+            canvas.DrawRoundRect(shell, edge);
+        }
+
+        // Under the label, so a missing cover reads as a blank sticker.
+        using (var plate = new SKPaint { IsAntialias = true, Color = new SKColor(0xE9, 0xE4, 0xD8) })
+        {
+            canvas.DrawRoundRect(new SKRoundRect(label, 8f), plate);
+        }
+
+        var pane = new SKRoundRect(window, 12f);
+        using (var windowPaint = new SKPaint { IsAntialias = true, Color = new SKColor(0x0A, 0x0B, 0x0E) })
+        {
+            canvas.DrawRoundRect(pane, windowPaint);
+        }
+
+        // The wound tape either side, clipped to the window — a pack wider than the
+        // opening is exactly what you see through a real shell. Static, because a
+        // reel of tape looks the same at any angle; only the hubs need to move.
+        canvas.Save();
+        canvas.ClipRoundRect(pane, antialias: true);
+
+        using (var tape = new SKPaint { IsAntialias = true, Color = new SKColor(0x3A, 0x2A, 0x22) })
+        {
+            canvas.DrawCircle(leftHub, hubRadius * 2.2f, tape);
+            canvas.DrawCircle(rightHub, hubRadius * 2.2f, tape);
+        }
+
+        canvas.Restore();
+
+        using (var screw = new SKPaint { IsAntialias = true, Color = new SKColor(255, 255, 255, 34) })
+        {
+            var inset = 26f;
+            canvas.DrawCircle(body.Left + inset, body.Top + inset, 7f, screw);
+            canvas.DrawCircle(body.Right - inset, body.Top + inset, 7f, screw);
+            canvas.DrawCircle(body.Left + inset, body.Bottom - inset, 7f, screw);
+            canvas.DrawCircle(body.Right - inset, body.Bottom - inset, 7f, screw);
+        }
+
+        return surface.Snapshot();
+    }
+
+    /// <summary>The two toothed hubs, turning a whole revolution across the loop.</summary>
+    private static void DrawHubs(
+        SKCanvas canvas,
+        SKPoint left,
+        SKPoint right,
+        float radius,
+        float phase,
+        Palette palette)
+    {
+        const int Teeth = 6;
+
+        using var hub = new SKPaint { IsAntialias = true, Color = new SKColor(0xD8, 0xD8, 0xDC) };
+        using var tooth = new SKPaint { IsAntialias = true, Color = new SKColor(0x1A, 0x1B, 0x20) };
+        using var rim = new SKPaint
+        {
+            Style = SKPaintStyle.Stroke,
+            StrokeWidth = 3f,
+            IsAntialias = true,
+            Color = palette.Accent.WithAlpha(150)
+        };
+
+        foreach (var center in new[] { left, right })
+        {
+            canvas.Save();
+            canvas.RotateDegrees(360f * phase, center.X, center.Y);
+
+            canvas.DrawCircle(center, radius, hub);
+
+            for (var i = 0; i < Teeth; i++)
+            {
+                var angle = i * 2f * MathF.PI / Teeth;
+                canvas.DrawCircle(
+                    center.X + (radius * 0.62f * MathF.Cos(angle)),
+                    center.Y + (radius * 0.62f * MathF.Sin(angle)),
+                    radius * 0.20f,
+                    tooth);
+            }
+
+            canvas.DrawCircle(center, radius, rim);
+            canvas.Restore();
+        }
+    }
+
+    // ---------------------------------------------------------------- review
+
+    private CardScene BuildReview(LayoutContext context)
+    {
+        const float Gap = 66f;
+        const float FrameInset = 58f;
+        const float ArtScale = 0.72f;
+
+        var lines = BuildTextBlock(context, context.Palette, SpecFor(CardTheme.Review));
+        var textHeight = TotalHeight(lines);
+
+        // Smaller than every other style's cover on purpose: here the poster is
+        // the illustration and the words are the point.
+        var artRect = SKRect.Empty;
+        if (context.Art is not null)
+        {
+            var full = MeasureArtRect(context.Art);
+            var width = full.Width * ArtScale;
+            artRect = SKRect.Create(Card.CenterX - (width / 2f), 0, width, full.Height * ArtScale);
+        }
+
+        var available = context.ContentBottom() - Card.SafeTop;
+        var gap = artRect.IsEmpty ? 0f : Gap;
+        var totalHeight = artRect.Height + gap + textHeight;
+
+        if (!artRect.IsEmpty && totalHeight > available)
+        {
+            artRect = ShrinkToFit(artRect, available - gap - textHeight, 200f);
+            if (artRect.IsEmpty)
+            {
+                gap = 0f;
+            }
+
+            totalHeight = artRect.Height + gap + textHeight;
+        }
+
+        var cursorY = Card.SafeTop + Math.Max(0f, (available - totalHeight) / 2f);
+        if (!artRect.IsEmpty)
+        {
+            artRect = MoveTo(artRect, cursorY);
+            cursorY = artRect.Bottom + gap;
+        }
+
+        // The frame goes in the topmost layer, so it reads as printing on the card
+        // rather than something the poster could sit on top of.
+        var textLayer = BuildOverlayLayer(
+            lines,
+            cursorY,
+            Footer(context),
+            canvas => DrawReviewFrame(canvas, FrameInset, context.Palette));
+        Dispose(lines);
+
+        return new CardScene
+        {
+            Theme = CardTheme.Review,
+            Palette = context.Palette,
+            Art = context.Art,
+            ArtImage = ArtImageFor(context.Art, artRect),
+            ShadowLayer = artRect.IsEmpty ? null : BuildShadowLayer(artRect, 16f),
+            TextLayer = textLayer,
+            ArtRect = artRect,
+            ArtCorner = 16f
+        };
+    }
+
+    /// <summary>A hairline border with a tick at each corner, like a printed plate.</summary>
+    private static void DrawReviewFrame(SKCanvas canvas, float inset, Palette palette)
+    {
+        const float Tick = 34f;
+
+        var frame = new SKRect(inset, inset, Card.Width - inset, Card.Height - inset);
+
+        using (var line = new SKPaint
+        {
+            Style = SKPaintStyle.Stroke,
+            StrokeWidth = 2f,
+            IsAntialias = true,
+            Color = palette.Title.WithAlpha(60)
+        })
+        {
+            canvas.DrawRect(frame, line);
+        }
+
+        using var corner = new SKPaint
+        {
+            Style = SKPaintStyle.Stroke,
+            StrokeWidth = 5f,
+            IsAntialias = true,
+            Color = palette.Accent.WithAlpha(210)
+        };
+
+        foreach (var (x, y, dx, dy) in new[]
+        {
+            (frame.Left, frame.Top, 1f, 1f),
+            (frame.Right, frame.Top, -1f, 1f),
+            (frame.Left, frame.Bottom, 1f, -1f),
+            (frame.Right, frame.Bottom, -1f, -1f)
+        })
+        {
+            canvas.DrawLine(x, y, x + (Tick * dx), y, corner);
+            canvas.DrawLine(x, y, x, y + (Tick * dy), corner);
+        }
+    }
+
     // ---------------------------------------------------------------- shared layers
 
     /// <summary>Static text, decoration and footer, flattened into one transparent overlay.</summary>
@@ -805,6 +1369,46 @@ public class StoryCardRenderer
             CommentMax = 34f,
             MaxWidth = 860f
         },
+        // Printed inside the ticket, so everything is a size down and the text can
+        // never be wider than the stock it sits on.
+        CardTheme.Ticket => new TextSpec
+        {
+            TitleMax = 56f,
+            TitleMin = 32f,
+            TitleLines = 2,
+            TitleSpacing = 16f,
+            SubtitleMax = 32f,
+            SubtitleMin = 24f,
+            CommentMax = 30f,
+            CommentLines = 2,
+            MaxWidth = 660f
+        },
+        CardTheme.Cassette => new TextSpec
+        {
+            TitleMax = 64f,
+            TitleMin = 38f,
+            TitleLines = 2,
+            SubtitleMax = 36f,
+            CommentMax = 32f,
+            MaxWidth = 840f
+        },
+        // The caption is the review, so it gets body-copy size and no quotes, and
+        // the score is a star row rather than one more chip.
+        CardTheme.Review => new TextSpec
+        {
+            TitleMax = 68f,
+            TitleMin = 40f,
+            TitleLines = 2,
+            TitleSpacing = 16f,
+            SubtitleMax = 34f,
+            SubtitleMin = 26f,
+            CommentMax = 36f,
+            CommentLines = 4,
+            QuoteComment = false,
+            MaxWidth = 760f,
+            Chips = false,
+            Stars = true
+        },
         _ => new TextSpec()
     };
 
@@ -840,15 +1444,31 @@ public class StoryCardRenderer
                 26f));
         }
 
-        var facts = BuildFacts(context.Item, context.Config);
-        if (spec.Chips && facts.Count > 0)
+        // The star row and the chip row occupy the same slot: a Review card that
+        // showed both would state the same score twice.
+        if (spec.Stars)
         {
-            lines.Add(new ChipRow(
-                facts,
-                context.Regular,
-                palette.Accent,
-                palette.ChipFill,
-                palette.Title));
+            if (context.Config.ShowRating && context.Item.CommunityRating is > 0)
+            {
+                // Jellyfin scores out of ten; a star row is out of five.
+                lines.Add(new StarRating(
+                    context.Item.CommunityRating.Value / 2f,
+                    32f,
+                    palette.Muted.WithAlpha(70)));
+            }
+        }
+        else if (spec.Chips)
+        {
+            var facts = BuildFacts(context.Item, context.Config);
+            if (facts.Count > 0)
+            {
+                lines.Add(new ChipRow(
+                    facts,
+                    context.Regular,
+                    palette.Accent,
+                    palette.ChipFill,
+                    palette.Title));
+            }
         }
 
         if (!string.IsNullOrWhiteSpace(context.Options.Comment))
@@ -860,11 +1480,11 @@ public class StoryCardRenderer
             }
 
             lines.Add(TextBlock.Fit(
-                $"“{comment}”",
+                spec.QuoteComment ? $"“{comment}”" : comment,
                 context.Regular,
                 spec.CommentMax,
                 spec.CommentMax - 12f,
-                3,
+                spec.CommentLines,
                 palette.Muted,
                 spec.MaxWidth - 60f,
                 palette.TextShadow * 0.75f,

@@ -21,7 +21,16 @@ public enum CardTheme
     Vinyl = 4,
 
     /// <summary>Cover fanned out as a pile of cards, the front one face up.</summary>
-    Stack = 5
+    Stack = 5,
+
+    /// <summary>Cinema ticket stub — perforated tear-off, art in the top band.</summary>
+    Ticket = 6,
+
+    /// <summary>Cover as a cassette label, hubs turning in the video.</summary>
+    Cassette = 7,
+
+    /// <summary>Review card — poster, a five-star row, and the caption as the review.</summary>
+    Review = 8
 }
 
 public class PluginConfiguration : BasePluginConfiguration
@@ -81,4 +90,17 @@ public class PluginConfiguration : BasePluginConfiguration
     /// "Share to Story" button to item detail pages.
     /// </summary>
     public bool InjectClientScript { get; set; } = true;
+
+    // ----- Rendering cache -----
+
+    /// <summary>
+    /// Keeps finished cards in memory so re-opening a share link, or flipping back
+    /// to a style already previewed, does not redraw. A Vinyl video costs ~17s of
+    /// drawing plus two ffmpeg passes, and the dialog asks for the same card twice
+    /// — once for the preview, once when the link is opened.
+    /// </summary>
+    public bool CacheEnabled { get; set; } = true;
+
+    /// <summary>Memory the cache may hold, in MB. Oldest-used cards are dropped first.</summary>
+    public int CacheSizeMb { get; set; } = 64;
 }

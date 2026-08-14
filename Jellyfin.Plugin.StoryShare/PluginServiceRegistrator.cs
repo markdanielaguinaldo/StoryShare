@@ -12,6 +12,7 @@ public class PluginServiceRegistrator : IPluginServiceRegistrator
     public void RegisterServices(IServiceCollection serviceCollection, IServerApplicationHost applicationHost)
     {
         serviceCollection.AddSingleton<ArtworkProvider>();
+        serviceCollection.AddSingleton<CardCache>();
         serviceCollection.AddSingleton<StoryCardRenderer>();
         serviceCollection.AddSingleton<VideoAnimationEncoder>();
         serviceCollection.AddSingleton<ShareTokenService>();

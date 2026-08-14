@@ -1,5 +1,5 @@
 /*
- * Story Share — adds a "Story" button to Jellyfin item detail pages.
+ * Story Share — adds a share button to Jellyfin item detail pages.
  *
  * Jellyfin exposes no client plugin API, so this hooks the DOM: it watches for
  * the detail page's button row and appends one button. Everything else lives in
@@ -29,7 +29,10 @@
             { value: 2, label: 'Minimal' },
             { value: 3, label: 'Polaroid' },
             { value: 4, label: 'Vinyl' },
-            { value: 5, label: 'Stack' }
+            { value: 5, label: 'Stack' },
+            { value: 6, label: 'Ticket' },
+            { value: 7, label: 'Cassette' },
+            { value: 8, label: 'Review' }
         ],
         backgrounds: [],
         defaultTheme: 0,
@@ -166,6 +169,11 @@
             'cursor:pointer;background:#00a4dc;color:#fff;display:inline-block;text-decoration:none;',
             'text-align:center;line-height:normal;align-self:flex-start;}',
             '.storyshare-btn.is-disabled{opacity:.5;cursor:default;pointer-events:none;}',
+            // A text button, not a control: taking the tagline has to look optional,
+            // because it is.
+            '.storyshare-suggest{margin-top:8px;padding:0;border:0;background:none;color:#4cc2f1;',
+            'font:inherit;font-size:.84em;cursor:pointer;text-align:left;line-height:1.4;}',
+            '.storyshare-suggest:hover{text-decoration:underline;}',
             '.storyshare-note{font-size:.85em;line-height:1.5;opacity:.75;margin:0;}',
             '.storyshare-status{font-size:.88em;min-height:1.2em;}',
             '.storyshare-status.error{color:#ff8080;}'
@@ -217,6 +225,9 @@
             '    <div>',
             '      <label for="storyshare-comment">Caption on the card (optional)</label>',
             '      <input id="storyshare-comment" data-role="comment" maxlength="180" placeholder="10/10, no notes">',
+            // Shown only when the item actually has a tagline, and it only ever
+            // fills the box above — nothing is put on the card unless it is clicked.
+            '      <button class="storyshare-suggest" data-role="tagline" type="button" hidden></button>',
             '    </div>',
             // is="emby-linkbutton" is what makes the Android app hand this to the
             // phone's browser. Keep the attribute and keep the click unhandled.
@@ -452,6 +463,36 @@
         el('format').addEventListener('change', reload);
         el('comment').addEventListener('change', reload);
 
+        /*
+         * Offers the item's tagline as a caption. Opt-in on purpose: some items have
+         * a marketing line nobody wants on their story, so it is shown as an offer
+         * with the text visible, and clicking it just types into the caption box —
+         * where it can be edited or deleted like anything else typed there.
+         */
+        function offerTagline() {
+            return request('StoryShare/Items/' + itemId + '/Caption')
+                .then(function (response) { return response.json(); })
+                .then(function (data) {
+                    var tagline = (prop(data, 'Tagline') || '').trim();
+                    if (!tagline) {
+                        return;
+                    }
+
+                    var button = el('tagline');
+                    var shown = tagline.length > 60 ? tagline.slice(0, 59).trim() + '…' : tagline;
+                    button.textContent = 'Use the tagline: “' + shown + '”';
+                    button.title = tagline;
+                    button.hidden = false;
+
+                    button.addEventListener('click', function () {
+                        el('comment').value = tagline;
+                        reload();
+                    });
+                })
+                // No tagline, no endpoint, no network: the caption box works either way.
+                .catch(function () { });
+        }
+
         loadStyles().then(function (loaded) {
             var themeSelect = el('theme');
             loaded.themes.forEach(function (theme) {
@@ -464,6 +505,10 @@
 
             buildSwatches(loaded.backgrounds, loaded.defaultBackground);
             loadPreview();
+
+            // After the style list, so the button cannot exist to be clicked while
+            // the style dropdown is still empty and a render would have no theme.
+            offerTagline();
         });
     }
 
@@ -474,11 +519,14 @@
         button.type = 'button';
         button.className = 'button-flat btn-storyshare detailButton emby-button';
         button.title = 'Share to Story';
+        // Icon only, to match the rest of the row. The icon is aria-hidden, so
+        // with the text label gone the button needs its own accessible name —
+        // title alone is not read reliably by screen readers.
+        button.setAttribute('aria-label', 'Share to Story');
         button.setAttribute('data-storyshare-button', '');
         button.innerHTML = [
             '<div class="detailButton-content">',
             '<span class="material-icons detailButton-icon" aria-hidden="true">ios_share</span>',
-            '<div class="detailButton-textContainer"><div>Story</div></div>',
             '</div>'
         ].join('');
         return button;

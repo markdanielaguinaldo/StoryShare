@@ -27,7 +27,10 @@ public static class CardThemes
         new(CardTheme.Minimal, "Minimal", "Flat background, no photographic backdrop."),
         new(CardTheme.Polaroid, "Polaroid", "Cover in a tilted paper frame with the caption underneath."),
         new(CardTheme.Vinyl, "Vinyl", "Cover cut into a record, grooves and all. Spins in the video."),
-        new(CardTheme.Stack, "Stack", "Cover fanned out as a pile of cards, the front one face up.")
+        new(CardTheme.Stack, "Stack", "Cover fanned out as a pile of cards, the front one face up."),
+        new(CardTheme.Ticket, "Ticket", "Cinema ticket stub, perforated and torn along the bottom."),
+        new(CardTheme.Cassette, "Cassette", "Cover as a tape label. The hubs turn in the video."),
+        new(CardTheme.Review, "Review", "Framed review card with a five-star row and your caption.")
     };
 }
 

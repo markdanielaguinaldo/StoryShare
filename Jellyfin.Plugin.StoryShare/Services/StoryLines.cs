@@ -42,9 +42,108 @@ internal sealed class TextSpec
 
     public float CommentMax { get; init; } = 38f;
 
+    public int CommentLines { get; init; } = 3;
+
+    /// <summary>Wraps the caption in quotes. Off where the caption *is* the body copy.</summary>
+    public bool QuoteComment { get; init; } = true;
+
     public float MaxWidth { get; init; } = Card.TextMaxWidth;
 
     public bool Chips { get; init; } = true;
+
+    /// <summary>Draw a five-star row in place of the chip row.</summary>
+    public bool Stars { get; init; }
+}
+
+/// <summary>
+/// The five-pointed star both the rating chip and the star row are drawn from.
+/// A path rather than a glyph: most system fonts have no U+2605 and would render
+/// a tofu box, which is what the chip's leading marker exists to avoid.
+/// </summary>
+internal static class StarShape
+{
+    public static readonly SKColor Color = new(0xFF, 0xC8, 0x3D);
+
+    public static SKPath Path(float cx, float cy, float outerRadius)
+    {
+        var path = new SKPath();
+        var innerRadius = outerRadius * 0.44f;
+
+        for (var i = 0; i < 10; i++)
+        {
+            var radius = i % 2 == 0 ? outerRadius : innerRadius;
+            var angle = (-MathF.PI / 2f) + (i * MathF.PI / 5f);
+            var point = new SKPoint(cx + (radius * MathF.Cos(angle)), cy + (radius * MathF.Sin(angle)));
+
+            if (i == 0)
+            {
+                path.MoveTo(point);
+            }
+            else
+            {
+                path.LineTo(point);
+            }
+        }
+
+        path.Close();
+        return path;
+    }
+}
+
+/// <summary>
+/// A row of five stars filled to a 0..5 score. The partial star is clipped rather
+/// than drawn at a smaller size, so a 3.4 reads as "a bit past three and a half"
+/// the way a review site draws it.
+/// </summary>
+internal sealed class StarRating : IStoryLine
+{
+    private const float Gap = 20f;
+
+    private readonly float _value;
+    private readonly float _radius;
+    private readonly SKColor _empty;
+
+    public StarRating(float outOfFive, float radius, SKColor empty)
+    {
+        _value = Math.Clamp(outOfFive, 0f, 5f);
+        _radius = radius;
+        _empty = empty;
+    }
+
+    public float Height => _radius * 2f;
+
+    public float SpacingAfter => 34f;
+
+    public void Draw(SKCanvas canvas, float top)
+    {
+        var step = (_radius * 2f) + Gap;
+        var x = Card.CenterX - (((step * 5f) - Gap) / 2f) + _radius;
+        var cy = top + _radius;
+
+        using var empty = new SKPaint { Color = _empty, IsAntialias = true };
+        using var full = new SKPaint { Color = StarShape.Color, IsAntialias = true };
+
+        for (var i = 0; i < 5; i++)
+        {
+            using var path = StarShape.Path(x, cy, _radius);
+            canvas.DrawPath(path, empty);
+
+            var fill = Math.Clamp(_value - i, 0f, 1f);
+            if (fill > 0f)
+            {
+                canvas.Save();
+                canvas.ClipRect(SKRect.Create(x - _radius, cy - _radius, _radius * 2f * fill, _radius * 2f));
+                canvas.DrawPath(path, full);
+                canvas.Restore();
+            }
+
+            x += step;
+        }
+    }
+
+    public void Dispose()
+    {
+    }
 }
 
 internal interface IStoryLine : IDisposable
@@ -183,8 +282,6 @@ internal sealed class ChipRow : IStoryLine
     private const float StarRadius = 15f;
     private const float StarGap = 11f;
 
-    private static readonly SKColor StarColor = new(0xFF, 0xC8, 0x3D);
-
     private readonly IReadOnlyList<string> _labels;
     private readonly SKFont _font;
     private readonly SKPaint _paint;
@@ -261,28 +358,8 @@ internal sealed class ChipRow : IStoryLine
 
     private static void DrawStar(SKCanvas canvas, float cx, float cy, float outerRadius)
     {
-        using var path = new SKPath();
-        var innerRadius = outerRadius * 0.44f;
-
-        for (var i = 0; i < 10; i++)
-        {
-            var radius = i % 2 == 0 ? outerRadius : innerRadius;
-            var angle = (-MathF.PI / 2f) + (i * MathF.PI / 5f);
-            var point = new SKPoint(cx + (radius * MathF.Cos(angle)), cy + (radius * MathF.Sin(angle)));
-
-            if (i == 0)
-            {
-                path.MoveTo(point);
-            }
-            else
-            {
-                path.LineTo(point);
-            }
-        }
-
-        path.Close();
-
-        using var paint = new SKPaint { Color = StarColor, IsAntialias = true };
+        using var path = StarShape.Path(cx, cy, outerRadius);
+        using var paint = new SKPaint { Color = StarShape.Color, IsAntialias = true };
         canvas.DrawPath(path, paint);
     }
 }
