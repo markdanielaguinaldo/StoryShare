@@ -3,10 +3,18 @@
         "guid":  "b6e3a1c4-5d27-4f8a-9c31-7a0f2d84e5b9",
         "name":  "Story Share",
         "description":  "Share movies, shows and music from your library as an Instagram Story card.",
-        "overview":  "Renders a 1080x1920 story card from any library item in six styles, as a still image or a looping video, and hands it to your phone.",
+        "overview":  "Renders a 1080x1920 story card from any library item in nine styles, as a still image or a looping video, and hands it to your phone.",
         "owner":  "markdanielaguinaldo",
         "category":  "General",
         "versions":  [
+                         {
+                             "version":  "1.1.0.0",
+                             "changelog":  "Three new card styles (Ticket, Cassette, Review), the item\u0027s tagline offered as an optional caption, an in-memory render cache, and the detail-page button is now icon only.",
+                             "targetAbi":  "10.11.0.0",
+                             "sourceUrl":  "https://github.com/markdanielaguinaldo/StoryShare/releases/download/v1.1.0.0/storyshare_1.1.0.0.zip",
+                             "checksum":  "3f047a5269c4e84698a6a98167ee2f6b",
+                             "timestamp":  "2026-08-14T04:54:16Z"
+                         },
                          {
                              "version":  "1.0.1.0",
                              "changelog":  "The Story button no longer needs write access to jellyfin-web. The script tag is injected into index.html as it is served rather than written to disk, so it works on distro package installs where /usr/share/jellyfin/web belongs to root, and a server update can no longer remove it. Any tag written by an earlier version is cleaned up on first start.",
