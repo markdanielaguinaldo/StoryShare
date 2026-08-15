@@ -38,14 +38,20 @@ internal sealed class CardScene : IDisposable
     public SKImage? DecorLayer { get; init; }
 
     /// <summary>
-    /// Vector decoration drawn beneath the artwork, every frame, inside the tilt.
+    /// Vector decoration drawn beneath the artwork, every frame, inside the tilt,
+    /// given the loop phase.
     ///
     /// Anything with a hard straight edge belongs here rather than in a baked layer:
     /// a rotated bitmap is resampled, and even with linear filtering its edges soften
     /// or stair-step. Redrawing the shape under the same transform keeps it crisp,
     /// and simple geometry is cheap enough to repeat per frame.
+    ///
+    /// It takes the phase for the same reason <see cref="DrawOverArt"/> does: this is
+    /// where something that moves <em>behind</em> the artwork goes — the cassette
+    /// sliding out of its sleeve — and whatever it draws has to be back where it
+    /// started at phase 1.
     /// </summary>
-    public Action<SKCanvas>? DrawUnderArt { get; init; }
+    public Action<SKCanvas, float>? DrawUnderArt { get; init; }
 
     /// <summary>
     /// Vector decoration drawn over the artwork every frame, given the loop phase.
@@ -59,6 +65,14 @@ internal sealed class CardScene : IDisposable
 
     /// <summary>Baked layer drawn over the artwork but still inside the tilt.</summary>
     public SKImage? TiltedOverlay { get; init; }
+
+    /// <summary>
+    /// Layers a style draws for itself, from <see cref="DrawUnderArt"/> or
+    /// <see cref="DrawOverArt"/>, because they move and the scene has no way to
+    /// know where to put them — the cassette's shell sliding out of its sleeve.
+    /// The scene still owns them, so they are disposed with everything else.
+    /// </summary>
+    public IReadOnlyList<SKImage>? MovingLayers { get; init; }
 
     public SKImage? ShadowLayer { get; init; }
 
@@ -82,6 +96,29 @@ internal sealed class CardScene : IDisposable
 
     public float ArtCorner { get; init; } = 28f;
 
+    /// <summary>
+    /// Clip for the artwork when a single corner radius will not describe it — the
+    /// ticket's plate is rounded along the top, where it meets the stock's own
+    /// corners, and square along the bottom where the printing begins.
+    /// </summary>
+    public SKRoundRect? ArtClip { get; init; }
+
+    /// <summary>
+    /// Where a vertical crop takes its slice from: 0.5 is centred, lower is nearer
+    /// the top. A poster cropped to a wide window loses its top and bottom equally,
+    /// and the faces are almost always in the upper half.
+    /// </summary>
+    public float ArtBiasY { get; init; } = 0.5f;
+
+    /// <summary>
+    /// Always crop the cover to fill its window, however different the two shapes
+    /// are — the opposite of what <see cref="Prepare"/> does by default. Full bleed
+    /// and Ticket both mean "the picture is the surface": setting a whole cover
+    /// inside the window with a blurred bed behind it is precisely the look they
+    /// exist to avoid.
+    /// </summary>
+    public bool FillWindow { get; init; }
+
     /// <summary>Corner radius equal to half the side turns the clip into a circle.</summary>
     public bool ArtBorder { get; init; } = true;
 
@@ -104,7 +141,8 @@ internal sealed class CardScene : IDisposable
     /// can be cropped into its window or has to be set whole inside it.
     ///
     /// Spinning styles are left alone — Vinyl's window is a circle, and a cover
-    /// fitted inside one would be a rectangle turning behind a round hole.
+    /// fitted inside one would be a rectangle turning behind a round hole — as are
+    /// the styles that ask to <see cref="FillWindow"/>.
     /// </summary>
     public void Prepare(CardAnimation animation)
     {
@@ -113,6 +151,7 @@ internal sealed class CardScene : IDisposable
         if (Art is null
             || ArtRect.IsEmpty
             || Spin
+            || FillWindow
             || Card.AspectMismatch(Art, ArtRect) <= Card.FitThreshold)
         {
             return;
@@ -194,7 +233,10 @@ internal sealed class CardScene : IDisposable
         // Behind everything the card is made of, not just behind the artwork: the
         // ticket and the polaroid are opaque stock, and a glow drawn on top of one
         // washes the whole card pale instead of lighting it from behind.
-        if (!ArtRect.IsEmpty && Animation == CardAnimation.Pulse)
+        //
+        // A card whose artwork covers the whole canvas has no behind to light, so it
+        // takes the wash after the picture instead — see DrawPulseWash.
+        if (!ArtRect.IsEmpty && Animation == CardAnimation.Pulse && !FillsCanvas)
         {
             DrawPulseGlow(canvas, beat);
         }
@@ -206,11 +248,16 @@ internal sealed class CardScene : IDisposable
             canvas.DrawImage(DecorLayer, 0, 0, Card.FrameSampling);
         }
 
-        DrawUnderArt?.Invoke(canvas);
+        DrawUnderArt?.Invoke(canvas, phase);
 
         if (!ArtRect.IsEmpty && Art is not null)
         {
             DrawArtPanel(canvas, artSwell, phase);
+        }
+
+        if (Animation == CardAnimation.Pulse && FillsCanvas)
+        {
+            DrawPulseWash(canvas, beat);
         }
 
         DrawOverArt?.Invoke(canvas, phase);
@@ -285,6 +332,47 @@ internal sealed class CardScene : IDisposable
         canvas.DrawCircle(center, radius, glow);
     }
 
+    /// <summary>
+    /// True when the artwork covers the canvas outright, so there is no card sitting
+    /// on a background — it <em>is</em> the background. Full bleed overscans its
+    /// window past every edge, which is what lets Float slide it without ever
+    /// showing black.
+    /// </summary>
+    private bool FillsCanvas =>
+        ArtRect.Left <= 0f && ArtRect.Top <= 0f
+        && ArtRect.Right >= Card.Width && ArtRect.Bottom >= Card.Height;
+
+    /// <summary>
+    /// Pulse, for a card the artwork covers completely. The glow version lights the
+    /// card from behind, and behind a picture that reaches every edge is nowhere at
+    /// all — so the beat is a breath of accent light across the picture instead.
+    /// Like the glow it is nothing at the bottom of the beat, which is phase 0, so
+    /// the still is unchanged whichever animation is chosen.
+    /// </summary>
+    private void DrawPulseWash(SKCanvas canvas, float beat)
+    {
+        if (beat <= 0.002f)
+        {
+            return;
+        }
+
+        var full = new SKRect(0, 0, Card.Width, Card.Height);
+        var alpha = (byte)(52 * beat);
+
+        using var wash = new SKPaint
+        {
+            BlendMode = SKBlendMode.Plus,
+            Shader = SKShader.CreateRadialGradient(
+                new SKPoint(Card.CenterX, Card.Height * 0.42f),
+                Card.Height * 0.62f,
+                new[] { Palette.Accent.WithAlpha(alpha), Palette.Accent.WithAlpha(0) },
+                new[] { 0f, 1f },
+                SKShaderTileMode.Clamp)
+        };
+
+        canvas.DrawRect(full, wash);
+    }
+
     public void Dispose()
     {
         TextLayer.Dispose();
@@ -294,8 +382,17 @@ internal sealed class CardScene : IDisposable
         ArtImage?.Dispose();
         ArtFill?.Dispose();
         ShadowLayer?.Dispose();
+        ArtClip?.Dispose();
         Art?.Dispose();
         Backdrop?.Dispose();
+
+        if (MovingLayers is not null)
+        {
+            foreach (var layer in MovingLayers)
+            {
+                layer.Dispose();
+            }
+        }
     }
 
     private void DrawBackground(SKCanvas canvas, float phase)
@@ -342,20 +439,17 @@ internal sealed class CardScene : IDisposable
 
         canvas.DrawImage(BackgroundLayer, source, full, Card.FrameSampling, null);
 
-        var scrimStops = Theme == CardTheme.FullBleed
-            ? new[] { 0f, 0.35f, 1f }
-            : new[] { 0f, 0.5f, 1f };
-        var scrimColors = Theme == CardTheme.FullBleed
-            ? new[] { new SKColor(0, 0, 0, 140), new SKColor(0, 0, 0, 60), new SKColor(0, 0, 0, 240) }
-            : new[] { new SKColor(0, 0, 0, 190), new SKColor(0, 0, 0, 150), new SKColor(0, 0, 0, 225) };
-
+        // Heavy, because this backdrop is only ever a blurred bed for a card sitting
+        // on top of it. Full bleed shows its picture sharp and edge to edge, so it
+        // has no background layer at all — it draws that picture as its art panel,
+        // which is what gives it the same movement every other style has.
         using (var scrim = new SKPaint
         {
             Shader = SKShader.CreateLinearGradient(
                 new SKPoint(0, 0),
                 new SKPoint(0, Card.Height),
-                scrimColors,
-                scrimStops,
+                new[] { new SKColor(0, 0, 0, 190), new SKColor(0, 0, 0, 150), new SKColor(0, 0, 0, 225) },
+                new[] { 0f, 0.5f, 1f },
                 SKShaderTileMode.Clamp)
         })
         {
@@ -391,7 +485,7 @@ internal sealed class CardScene : IDisposable
 
     private void DrawArtPanel(SKCanvas canvas, float swell, float phase)
     {
-        var rounded = new SKRoundRect(ArtRect, ArtCorner);
+        var rounded = ArtClip ?? new SKRoundRect(ArtRect, ArtCorner);
 
         if (ShadowLayer is not null)
         {
@@ -403,7 +497,7 @@ internal sealed class CardScene : IDisposable
 
         if (ArtImage is not null)
         {
-            var cover = Card.CoverSourceRect(Art!, ArtRect);
+            var cover = Card.CoverSourceRect(Art!, ArtRect, ArtBiasY);
 
             if (Spin)
             {

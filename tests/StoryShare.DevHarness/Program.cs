@@ -213,54 +213,80 @@ Console.WriteLine($"cassette loop closes cleanly       : {tapeSeam < tapeStep * 
 // one still has to meet itself at the seam. Measured the way Vinyl and Cassette
 // are: the last frame is one step short of home by construction, so what has to
 // hold is that the seam is no bigger than an ordinary step.
-foreach (var animation in new[] { CardAnimation.Float, CardAnimation.Pulse })
+// Run against more than one style: Full bleed has no panel sitting on a background
+// the way Ticket does, and for a long time that meant Float, Pulse and Auto all
+// produced exactly the same video — a test that only ever looked at Ticket had no
+// way of noticing.
+foreach (var moveTheme in new[] { CardTheme.Ticket, CardTheme.FullBleed, CardTheme.Cassette })
 {
-    // The spec the encoder would pick, not the default one: Float and Pulse run on
-    // a longer loop so they move at half the speed, and a seam measured on the
-    // short loop would not be the seam anyone ever sees.
-    var moveSpec = Jellyfin.Plugin.StoryShare.Models.AnimationSpec.For(CardTheme.Ticket, animation);
-    var moveRaw = new MemoryStream();
-    await renderer.RenderFramesAsync(
-        movie,
-        new StoryCardOptions { Theme = CardTheme.Ticket, Animation = animation },
-        moveSpec,
-        moveRaw,
-        CancellationToken.None);
-    buffer = moveRaw.ToArray();
+    foreach (var animation in new[] { CardAnimation.Float, CardAnimation.Pulse })
+    {
+        // The spec the encoder would pick, not the default one: Float and Pulse run
+        // on a longer loop so they move at half the speed, and a seam measured on the
+        // short loop would not be the seam anyone ever sees.
+        var moveSpec = Jellyfin.Plugin.StoryShare.Models.AnimationSpec.For(moveTheme, animation);
+        var moveRaw = new MemoryStream();
+        await renderer.RenderFramesAsync(
+            movie,
+            new StoryCardOptions { Theme = moveTheme, Animation = animation },
+            moveSpec,
+            moveRaw,
+            CancellationToken.None);
+        buffer = moveRaw.ToArray();
 
-    var moveStep = MeanDiff(0, 1);
-    var moveSeam = MeanDiff(0, moveSpec.FrameCount - 1);
-    // The furthest point from the start, not the half-way frame: Pulse beats twice
-    // per loop, so its mid-frame is back at the start and measuring there would
-    // report a card that never moves.
-    var moveFar = Math.Max(
-        MeanDiff(0, moveSpec.FrameCount / 4),
-        Math.Max(MeanDiff(0, moveSpec.FrameCount / 2), MeanDiff(0, moveSpec.FrameCount * 3 / 4)));
+        var moveStep = MeanDiff(0, 1);
+        var moveSeam = MeanDiff(0, moveSpec.FrameCount - 1);
+        // The furthest point from the start, not the half-way frame: Pulse beats twice
+        // per loop, so its mid-frame is back at the start and measuring there would
+        // report a card that never moves.
+        var moveFar = Math.Max(
+            MeanDiff(0, moveSpec.FrameCount / 4),
+            Math.Max(MeanDiff(0, moveSpec.FrameCount / 2), MeanDiff(0, moveSpec.FrameCount * 3 / 4)));
 
-    // A quarter in is the top of Pulse's beat and the far side of Float's swing.
-    SaveFrame($"animation-{animation}", moveSpec.FrameCount / 4);
+        // A quarter in is the top of Pulse's beat and the far side of Float's swing.
+        SaveFrame($"animation-{moveTheme}-{animation}", moveSpec.FrameCount / 4);
 
-    Console.WriteLine($"{animation,-6} furthest frame (want > 1)  : {moveFar:F2}");
-    Console.WriteLine($"{animation,-6} per-frame step             : {moveStep:F2}");
-    Console.WriteLine($"{animation,-6} seam step (want <= a step) : {moveSeam:F2}");
-    Console.WriteLine($"{animation,-6} loop closes cleanly        : {moveFar > 1 && moveSeam <= moveStep * 1.5}");
-    Console.WriteLine(
-        $"{animation,-6} slower than the plain loop : "
-        + $"{moveSpec.FrameCount / moveSpec.Fps:F0}s loop, {moveSpec.Duration:F0}s video "
-        + $"({moveSpec.FrameCount / moveSpec.Fps / (Jellyfin.Plugin.StoryShare.Models.AnimationSpec.Video.FrameCount / Jellyfin.Plugin.StoryShare.Models.AnimationSpec.Video.Fps):F1}x)");
+        var label = $"{moveTheme}/{animation}";
+        // Motion is judged against the frame step as well as against a floor, because
+        // the floor cannot be one number for every style. Float slides a ticket about
+        // on a dark surround, which moves a great many bytes; it slides a full-bleed
+        // picture under itself, which moves very few, and fewer still against the flat
+        // synthetic artwork here. What says an animation is dead is the same either
+        // way: the furthest frame is no further from the start than an ordinary step.
+        var moves = moveFar > 0.35 && moveFar > moveStep * 2;
+
+        Console.WriteLine($"{label,-22} furthest frame             : {moveFar:F2}");
+        Console.WriteLine($"{label,-22} per-frame step             : {moveStep:F2}");
+        Console.WriteLine($"{label,-22} seam step (want <= a step) : {moveSeam:F2}");
+        Console.WriteLine($"{label,-22} actually moves             : {moves}");
+        Console.WriteLine($"{label,-22} loop closes cleanly        : {moves && moveSeam <= moveStep * 1.5}");
+
+        // The pacing is a property of the animation, not of the style, so it only
+        // needs saying once.
+        if (moveTheme == CardTheme.Ticket)
+        {
+            Console.WriteLine(
+                $"{label,-22} slower than the plain loop : "
+                + $"{moveSpec.FrameCount / moveSpec.Fps:F0}s loop, {moveSpec.Duration:F0}s video "
+                + $"({moveSpec.FrameCount / moveSpec.Fps / (Jellyfin.Plugin.StoryShare.Models.AnimationSpec.Video.FrameCount / Jellyfin.Plugin.StoryShare.Models.AnimationSpec.Video.Fps):F1}x)");
+        }
+    }
 }
 
 // A still is the scene at phase 0 whatever the animation, so the picture must not
 // change with it — otherwise the dialog would show one card and share another.
-var stillAuto = await renderer.RenderAsync(movie, new StoryCardOptions { Theme = CardTheme.Ticket }, SKEncodedImageFormat.Png, CancellationToken.None);
-foreach (var animation in new[] { CardAnimation.Float, CardAnimation.Pulse })
+foreach (var stillTheme in new[] { CardTheme.Ticket, CardTheme.FullBleed, CardTheme.Cassette })
 {
-    var still = await renderer.RenderAsync(
-        movie,
-        new StoryCardOptions { Theme = CardTheme.Ticket, Animation = animation },
-        SKEncodedImageFormat.Png,
-        CancellationToken.None);
-    Console.WriteLine($"{animation,-6} leaves the still alone     : {stillAuto.AsSpan().SequenceEqual(still)}");
+    var stillAuto = await renderer.RenderAsync(movie, new StoryCardOptions { Theme = stillTheme }, SKEncodedImageFormat.Png, CancellationToken.None);
+    foreach (var animation in new[] { CardAnimation.Float, CardAnimation.Pulse })
+    {
+        var still = await renderer.RenderAsync(
+            movie,
+            new StoryCardOptions { Theme = stillTheme, Animation = animation },
+            SKEncodedImageFormat.Png,
+            CancellationToken.None);
+        Console.WriteLine($"{stillTheme + "/" + animation,-22} leaves the still alone     : {stillAuto.AsSpan().SequenceEqual(still)}");
+    }
 }
 
 Console.WriteLine("Output: " + outDir);

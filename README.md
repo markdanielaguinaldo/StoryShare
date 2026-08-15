@@ -75,13 +75,13 @@ in the plugin settings:
 | Style | What it looks like |
 | --- | --- |
 | **Poster** | Cover on a blurred version of its own artwork. |
-| **Full bleed** | Artwork fills the card, text over a bottom gradient. |
+| **Full bleed** | The cover printed edge to edge — whichever of the poster and the backdrop loses least to the crop — with the text on a gradient along the bottom. |
 | **Minimal** | Flat background, no photographic backdrop. |
 | **Polaroid** | Cover set into a square print on a tilted paper card, caption printed on the card below it. |
 | **Vinyl** | Cover cut into a record — grooves, label ring and spindle hole. Spins in the video, at 10 rpm. |
 | **Stack** | Cover fanned out as a pile of cards, the front one face up and in focus. |
-| **Ticket** | Cinema stub: artwork on a plate cut to the cover's own shape, a perforated tear across the bottom and *admit one* printed on the torn-off part. |
-| **Cassette** | Cover printed on a ruled label sticker across a tape shell. The hubs turn in the video while the label stays put. |
+| **Ticket** | Cinema stub: the cover printed as a billboard across the full width of the ticket's head, a perforated tear across the bottom and *admit one* printed on the torn-off part. |
+| **Cassette** | Cover as the sleeve, with the tape halfway out of it. The shell slides further out across the video and its hubs turn as it goes. |
 | **Review** | Framed card, poster small, with a five-star row and your caption set as the review itself. |
 
 The accent colour — chip outlines, the footer dot, the record's rim, the edges of the
@@ -103,15 +103,12 @@ circle, and a fitted rectangle turning behind a round hole is not a record.
 The bed is baked once at build time; only the push-in moves per frame, and the cover
 is fitted with a margin so it grows into that instead of being clipped by it.
 
-**Ticket and Cassette avoid the question entirely, by cutting the window to the cover
-rather than the cover to the window.** Fitting a poster into a fixed landscape band left
-it a stamp on a plate three times its width — technically the whole picture, and far too
-small to be the point of the card. So the ticket's image plate now takes the cover's own
-aspect and grows to whatever height the stub has room for, and the ticket is cut around
-it; the cassette's print does the same inside its label, and the sticker keeps the
-shell's full width with ruled lines either side so a portrait cover reads as printed on
-a label rather than stuck to bare plastic. Both fill their plate outright, at three to
-five times the area they had.
+**Full bleed, Ticket and Cassette avoid the question entirely.** Full bleed and Ticket
+mean *the picture is the surface*, so they always crop to fill — a whole cover set on a
+blurred bed is exactly the look they exist to avoid — and the crop is biased towards the
+top of the frame, which is where a poster keeps its faces. Cassette cuts the window to
+the cover instead: a sleeve is whatever shape the thing inside it is, so the cover is
+printed at its own proportions and nothing has to be fitted at all.
 
 ### The footer line
 
@@ -172,7 +169,7 @@ rest whatever is selected and every option would render the identical image.
 
 | Animation | What moves |
 | --- | --- |
-| **Auto** | The style's own movement: a slow push-in on the cover, a blurred backdrop drifting the other way for parallax, and a light sweep crossing the artwork once per loop. Vinyl spins, Cassette turns its hubs. |
+| **Auto** | The style's own movement: a slow push-in on the cover, a blurred backdrop drifting the other way for parallax, and a light sweep crossing the artwork once per loop. Vinyl spins; Cassette slides its tape out of the sleeve and turns the hubs as it goes. |
 | **Float** | The whole card — paper, ticket, shell and the cover inside it — drifts through a figure of eight while the background and the text stay put. |
 | **Pulse** | Two beats per loop: the artwork swells and a wash of accent light breathes behind the card. |
 
@@ -180,7 +177,15 @@ Float moves the card as one object rather than the artwork alone, or a photo wou
 slide out of the frame that is meant to be holding it, and it moves in whole pixels so
 the baked layers are never resampled. Pulse's glow is drawn *behind* the card body,
 not over it — on opaque stock like the ticket, painting on top just washes the whole
-card pale.
+card pale. Full bleed is the exception it has to make: behind a picture that reaches
+every edge there is nowhere to put a light, so it takes a breath of accent light across
+the picture instead.
+
+All three work on every style. That is worth saying because for a long time it was not
+true: Full bleed drew its artwork as a background rather than as a panel, and the
+push-in, the drift and the beat all hang off the panel — so whichever animation you
+picked, the video came out the same. It is now the card's art panel, overscanned past
+each edge so Float has somewhere to slide it to.
 
 They loop seamlessly by construction: the zoom is driven by `(1 - cos 2πp) / 2`, so the
 last frame lands back at the first; Float's offsets are sines of a whole number of
@@ -433,11 +438,13 @@ dotnet run --project tests/StoryShare.DevHarness
 It writes the cards to `tests/StoryShare.DevHarness/bin/Release/net9.0/out/` and exits
 non-zero if a token test fails. It covers every style with and without artwork, the
 pale presets, a raw hex background, both directions of the cover fitting, and every
-animation loop — the ordinary push-in, Vinyl's spin, Cassette's turning hubs, plus
-Float and Pulse. Each loop is checked for a seam no bigger than an ordinary frame
-step, and the two chosen animations are also checked for leaving the still image
-untouched. The peak frame of each is written out as `animation-*.png`: numbers catch a
-loop that does not close, but only a picture catches a card that moves badly. Worth a
+animation loop — the ordinary push-in, Vinyl's spin, Cassette's sliding tape, plus
+Float and Pulse across three different styles. Each loop is checked for a seam no
+bigger than an ordinary frame step, for moving at all, and for leaving the still image
+untouched. Running the last of those against more than one style is the point: Full
+bleed's animations were dead for months, and a test that only ever looked at Ticket had
+no way of noticing. The peak frame of each is written out as `animation-*.png`: numbers
+catch a loop that does not close, but only a picture catches a card that moves badly. Worth a
 look after any change to the renderer — byte counts alone have caught bugs, but layout
 regressions need eyes.
 

@@ -8,7 +8,7 @@ public enum CardTheme
     /// <summary>Blurred artwork background, poster on top. The default.</summary>
     Poster = 0,
 
-    /// <summary>Full-bleed artwork with a bottom gradient and text over it.</summary>
+    /// <summary>The cover edge to edge, with a bottom gradient and text over it.</summary>
     FullBleed = 1,
 
     /// <summary>Flat colour derived from the artwork, no photographic background.</summary>
@@ -23,10 +23,10 @@ public enum CardTheme
     /// <summary>Cover fanned out as a pile of cards, the front one face up.</summary>
     Stack = 5,
 
-    /// <summary>Cinema ticket stub — perforated tear-off, art in the top band.</summary>
+    /// <summary>Cinema ticket stub — perforated tear-off, cover across its head.</summary>
     Ticket = 6,
 
-    /// <summary>Cover as a cassette label, hubs turning in the video.</summary>
+    /// <summary>Cover as a cassette sleeve, the tape sliding out of it.</summary>
     Cassette = 7,
 
     /// <summary>Review card — poster, a five-star row, and the caption as the review.</summary>

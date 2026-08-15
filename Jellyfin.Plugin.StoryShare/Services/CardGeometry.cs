@@ -45,8 +45,13 @@ internal static class Card
         return SKRect.Create(x, y, width, height);
     }
 
-    /// <summary>The sub-rect of <paramref name="bitmap"/> that fills <paramref name="dest"/> without distortion.</summary>
-    public static SKRect CoverSourceRect(SKBitmap bitmap, SKRect dest)
+    /// <summary>
+    /// The sub-rect of <paramref name="bitmap"/> that fills <paramref name="dest"/>
+    /// without distortion. <paramref name="biasY"/> chooses where a vertical crop
+    /// takes its slice from — 0.5 is centred, lower is nearer the top, which is
+    /// where a poster keeps its faces.
+    /// </summary>
+    public static SKRect CoverSourceRect(SKBitmap bitmap, SKRect dest, float biasY = 0.5f)
     {
         var srcAspect = bitmap.Width / (float)bitmap.Height;
         var dstAspect = dest.Width / dest.Height;
@@ -59,7 +64,7 @@ internal static class Card
         }
 
         var h = bitmap.Width / dstAspect;
-        var y = (bitmap.Height - h) / 2f;
+        var y = (bitmap.Height - h) * Math.Clamp(biasY, 0f, 1f);
         return SKRect.Create(0, y, bitmap.Width, h);
     }
 
