@@ -314,10 +314,11 @@ public class StoryCardRenderer
     }
 
     /// <summary>
-    /// Everything printed over the picture, in one layer: the mark at the top, and the
-    /// stack of type across the bottom left. Baked rather than drawn per frame, and
-    /// drawn outside the tilt and the drift, so Float slides the picture underneath
-    /// while the words stay exactly where they were set.
+    /// Everything printed over the picture, in one layer: the stack of type up the
+    /// bottom left, the mark in the corner opposite it, and the now-playing line along
+    /// the very bottom. Baked rather than drawn per frame, and drawn outside the tilt
+    /// and the drift, so Float slides the picture underneath while the words stay
+    /// exactly where they were set.
     /// </summary>
     private SKImage BuildBleedLayer(LayoutContext context)
     {
@@ -326,6 +327,10 @@ public class StoryCardRenderer
         const float RuleWidth = 150f;
         const float RuleHeight = 5f;
         const float FactHeight = 46f;
+        // The mark sits above the now-playing line rather than beside it. Side by side
+        // they would have to share 904 points between them, and the one that gave way
+        // would be the logo — which is the half nobody can read at half the size.
+        const float BrandBottom = 1668f;
 
         var palette = context.Palette;
         var background = palette.Background;
@@ -375,13 +380,11 @@ public class StoryCardRenderer
         var facts = BuildIconFacts(context.Item, context.Config);
         var factsHeight = facts.Count > 0 ? FactHeight : 0f;
 
-        // Bottom up. Each gap is only spent if the thing above it exists, so a track
-        // with no rating does not leave a hole where the fact row would have been.
-        //
-        // The block runs all the way to the safe line because there is no footer under
-        // it: the footer text is set as the line above the title instead — see
-        // DrawBleedEyebrow — and printing it twice was saying the same thing twice.
-        var cursor = Card.SafeBottom;
+        // Bottom up, starting clear of the mark in the corner. Each gap is only spent
+        // if the thing above it exists, so a track with no rating does not leave a hole
+        // where the fact row would have been.
+        using var logo = LoadBrandLogo(context.Config.BrandLogoPath);
+        var cursor = BrandBottom - BrandHeight(logo) - 46f;
 
         var factsTop = cursor - factsHeight;
         cursor = factsHeight > 0f ? factsTop - 40f : cursor;
@@ -396,20 +399,23 @@ public class StoryCardRenderer
         cursor = subtitle is null ? cursor : subtitleTop - 20f;
 
         var titleTop = cursor - title.Height;
-        var eyebrow = string.IsNullOrWhiteSpace(context.FooterText)
-            ? null
-            : context.FooterText.ToUpperInvariant();
-        var eyebrowBaseline = titleTop - 34f;
 
         // The scrim goes down first and is anchored to the type: a title that wraps to
         // three lines has to be sitting on the dark part of the ramp, not above it.
-        DrawBleedScrim(canvas, eyebrowBaseline - 60f, deep);
+        DrawBleedScrim(canvas, titleTop - 60f, deep);
 
-        DrawBleedBrand(canvas, context, Margin);
+        DrawBleedBrand(canvas, context, logo, Margin, BrandBottom);
 
-        if (eyebrow is not null)
+        if (!string.IsNullOrWhiteSpace(context.FooterText))
         {
-            DrawBleedEyebrow(canvas, eyebrow, Margin, eyebrowBaseline, MaxWidth, palette, context.Bold);
+            DrawBleedNowPlaying(
+                canvas,
+                context.FooterText.ToUpperInvariant(),
+                Margin,
+                Card.FooterBaseline,
+                MaxWidth,
+                palette,
+                context.Bold);
         }
 
         title.Draw(canvas, titleTop);
@@ -509,26 +515,53 @@ public class StoryCardRenderer
         canvas.DrawRect(full, top);
     }
 
-    /// <summary>
-    /// The mark in the top left. A configured logo is drawn on its own — a lockup
-    /// already says whose server this is — and without one the wordmark is set as
-    /// type instead, so the corner is never empty.
-    /// </summary>
-    private void DrawBleedBrand(SKCanvas canvas, LayoutContext context, float margin)
-    {
-        const float LogoHeight = 220f;
-        // Nearly the full width the type gets. A lockup is mostly wordmark, so it has
-        // to be allowed to run wide before the height cap is the thing holding it back.
-        const float MaxLogoWidth = 820f;
+    private const float BleedLogoHeight = 220f;
 
-        using var logo = LoadBrandLogo(context.Config.BrandLogoPath);
+    // Nearly the full width the type gets. A lockup is mostly wordmark, so it has to
+    // be allowed to run wide before the height cap is the thing holding it back.
+    private const float BleedLogoMaxWidth = 820f;
+
+    /// <summary>Two lines of type, when there is no logo to print in their place.</summary>
+    private const float BleedWordmarkHeight = 96f;
+
+    /// <summary>
+    /// How much room the mark needs, so the stack of type above it knows where to
+    /// stop. Measured rather than assumed, because a tall narrow logo and a wide flat
+    /// one leave very different amounts of card behind.
+    /// </summary>
+    private static float BrandHeight(SKBitmap? logo)
+    {
+        if (logo is null || logo.Height <= 0)
+        {
+            return BleedWordmarkHeight;
+        }
+
+        var aspect = logo.Width / (float)logo.Height;
+        return Math.Min(BleedLogoMaxWidth, BleedLogoHeight * aspect) / aspect;
+    }
+
+    /// <summary>
+    /// The mark in the bottom right, sitting opposite the type rather than over it. A
+    /// configured logo is drawn on its own — a lockup already says whose server this
+    /// is — and without one the wordmark is set as type instead, so the corner is
+    /// never empty.
+    /// </summary>
+    private static void DrawBleedBrand(
+        SKCanvas canvas,
+        LayoutContext context,
+        SKBitmap? logo,
+        float margin,
+        float bottom)
+    {
+        var right = Card.Width - margin;
         var palette = context.Palette;
 
         if (logo is not null)
         {
-            var width = Math.Min(MaxLogoWidth, LogoHeight * (logo.Width / (float)logo.Height));
-            var height = width / (logo.Width / (float)logo.Height);
-            var rect = SKRect.Create(margin, Card.SafeTop, width, height);
+            var aspect = logo.Width / (float)logo.Height;
+            var width = Math.Min(BleedLogoMaxWidth, BleedLogoHeight * aspect);
+            var height = width / aspect;
+            var rect = SKRect.Create(right - width, bottom - height, width, height);
 
             using var image = SKImage.FromBitmap(logo);
             using var paint = new SKPaint
@@ -549,8 +582,8 @@ public class StoryCardRenderer
             ImageFilter = SKImageFilter.CreateDropShadow(0, 3f, 8f, 8f, new SKColor(0, 0, 0, 160))
         };
 
-        canvas.DrawText("Shared with", margin, Card.SafeTop + 24f, SKTextAlign.Left, small, muted);
-        canvas.DrawText("Story Share", margin, Card.SafeTop + 80f, SKTextAlign.Left, large, strong);
+        canvas.DrawText("Shared with", right, bottom - 62f, SKTextAlign.Right, small, muted);
+        canvas.DrawText("Story Share", right, bottom - 8f, SKTextAlign.Right, large, strong);
     }
 
     /// <summary>
@@ -577,14 +610,13 @@ public class StoryCardRenderer
     }
 
     /// <summary>
-    /// The accent line above the title: a play mark and a letterspaced label.
+    /// The line along the very bottom: a play mark and a letterspaced label.
     ///
-    /// The label is the footer text, which is where this style's only copy of it now
-    /// lives. Printing "NOW PLAYING" here and "Now playing in <server>" along the
-    /// bottom said the same thing twice, and the bottom of a poster is not where the
-    /// eye starts.
+    /// The label is the footer text, and it is the only copy of it on the card.
+    /// Printing "NOW PLAYING" over the title and "Now playing in &lt;server&gt;" under
+    /// the fold was the same sentence set twice.
     /// </summary>
-    private static void DrawBleedEyebrow(
+    private static void DrawBleedNowPlaying(
         SKCanvas canvas,
         string label,
         float margin,
