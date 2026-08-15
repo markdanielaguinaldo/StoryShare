@@ -14,6 +14,11 @@ param(
     [string]$RepoUrl = 'https://github.com/markdanielaguinaldo/StoryShare',
     [string]$Changelog = '',
 
+    # The catalogue thumbnail, for a server that has not installed the plugin yet and
+    # so has no copy of its own. raw.githubusercontent, not github.com — the latter
+    # serves an HTML page around the file and Jellyfin gets a broken image.
+    [string]$ImageUrl = 'https://raw.githubusercontent.com/markdanielaguinaldo/StoryShare/main/docs/logo.png',
+
     # Skips rewriting manifest.json, for a build you do not intend to publish.
     [switch]$NoManifest
 )
@@ -44,6 +49,14 @@ foreach ($name in $shipped) {
     Copy-Item $source -Destination $stage
 }
 
+# The logo travels inside the package as well as being linked from the manifest:
+# once the plugin is installed the dashboard serves the image from the plugin's own
+# folder, and a server with no route to raw.githubusercontent would otherwise show
+# an empty tile for something it already has on disk.
+$logo = Join-Path $root 'docs\logo.png'
+if (-not (Test-Path $logo)) { throw "Expected logo missing: $logo" }
+Copy-Item $logo -Destination (Join-Path $stage 'logo.png')
+
 $meta = [ordered]@{
     guid        = 'b6e3a1c4-5d27-4f8a-9c31-7a0f2d84e5b9'
     name        = 'Story Share'
@@ -54,6 +67,8 @@ $meta = [ordered]@{
     version     = $Version
     targetAbi   = $TargetAbi
     framework   = 'net9.0'
+    # Relative to the plugin's own folder, which is what the server serves it from.
+    imagePath   = 'logo.png'
     timestamp   = (Get-Date).ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ')
 }
 # Written with an explicit BOM-less encoder, NOT Out-File -Encoding utf8: on Windows
@@ -99,6 +114,10 @@ if (-not $NoManifest) {
         # Jellyfin offers whichever entry it finds first for a given version.
         $others = @($plugin.versions | Where-Object { $_.version -ne $Version })
         $plugin.versions = @([pscustomobject]$entry) + $others
+
+        # -Force because a manifest written before the plugin had a logo has no such
+        # property, and plain assignment onto a PSCustomObject cannot create one.
+        $plugin | Add-Member -NotePropertyName imageUrl -NotePropertyValue $ImageUrl -Force
     }
     else {
         $plugin = [pscustomobject][ordered]@{
@@ -108,6 +127,7 @@ if (-not $NoManifest) {
             overview    = $meta.overview
             owner       = $meta.owner
             category    = $meta.category
+            imageUrl    = $ImageUrl
             versions    = @([pscustomobject]$entry)
         }
     }

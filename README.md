@@ -1,3 +1,5 @@
+<img src="docs/logo.png" alt="" width="128" align="right">
+
 # Story Share
 
 A Jellyfin plugin that turns any movie, episode, album or track in your library into
