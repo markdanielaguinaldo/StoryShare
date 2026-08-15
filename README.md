@@ -1,4 +1,4 @@
-<img src="docs/logo.png" alt="" width="128" align="right">
+<img src="docs/icon.png" alt="" width="96">
 
 # Story Share
 

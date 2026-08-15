@@ -53,6 +53,10 @@ foreach ($name in $shipped) {
 # once the plugin is installed the dashboard serves the image from the plugin's own
 # folder, and a server with no route to raw.githubusercontent would otherwise show
 # an empty tile for something it already has on disk.
+#
+# It is 16:9 rather than square because Jellyfin fits it into a wide box: a square
+# image is pillarboxed there and stands as tall as the whole panel below it. The
+# square version lives at docs/icon.png and is only for the README.
 $logo = Join-Path $root 'docs\logo.png'
 if (-not (Test-Path $logo)) { throw "Expected logo missing: $logo" }
 Copy-Item $logo -Destination (Join-Path $stage 'logo.png')
