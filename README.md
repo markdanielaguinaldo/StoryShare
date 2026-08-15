@@ -77,7 +77,7 @@ in the plugin settings:
 | Style | What it looks like |
 | --- | --- |
 | **Poster** | Cover on a blurred version of its own artwork. |
-| **Full bleed** | The cover printed edge to edge — whichever of the poster and the backdrop loses least to the crop — with your mark in the top left and everything else set against the bottom left: the title, a rule, a row of facts with icons, and the footer line along the very bottom. |
+| **Full bleed** | The cover printed edge to edge — whichever of the poster and the backdrop loses least to the crop — with your mark flush in the top left corner and everything else set against the bottom left: the title, a rule, a row of facts with icons, and the footer line along the very bottom. |
 | **Minimal** | Flat background, no photographic backdrop. |
 | **Polaroid** | Cover set into a square print on a tilted paper card, caption printed on the card below it. |
 | **Vinyl** | Cover cut into a record — grooves, label ring and spindle hole. Spins in the video, at 10 rpm. |
@@ -137,11 +137,16 @@ twice.
 ### Your own logo on a Full bleed card
 
 **Brand logo** in the settings takes a full path to an image on the server, and Full
-bleed prints it in the top left, on the same left margin as everything else — your
-server's lockup, not this plugin's. Leave it empty and the corner is set as type
-instead, so the card never has a hole in it. It hangs from the safe line rather than
-the type's own margin, because Instagram's chrome reaches further down the card than
-it does in from the sides.
+bleed prints it hard into the top left corner — your server's lockup, not this
+plugin's. Leave it empty and the corner is set as type instead, so the card never has
+a hole in it.
+
+The logo goes truly flush, bleeding off both edges the way the picture under it does,
+so give it **transparency around the mark**: an image with its own opaque background
+reads as a block stuck to the corner rather than as part of the card. Note too that
+this is the one thing on the card outside the safe band — Instagram lays its own
+chrome across the top strip, so a mark up here can be partly covered while the story
+is being viewed.
 
 A path rather than an upload because a plugin has nowhere to put an uploaded file that
 a server upgrade will not wipe, and any server that has a logo already keeps it

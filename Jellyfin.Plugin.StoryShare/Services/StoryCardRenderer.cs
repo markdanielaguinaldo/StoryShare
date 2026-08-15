@@ -317,11 +317,11 @@ public class StoryCardRenderer
     }
 
     /// <summary>
-    /// Everything printed over the picture, in one layer: the mark in the top left,
-    /// the stack of type up the bottom left and the now-playing line along the very
-    /// bottom, all on the same margin. Baked rather than drawn per frame, and drawn
-    /// outside the tilt and the drift, so Float slides the picture underneath while
-    /// the words stay exactly where they were set.
+    /// Everything printed over the picture, in one layer: the mark hard into the top
+    /// left corner, and the stack of type up the bottom left with the now-playing line
+    /// along the very bottom, both on the same margin. Baked rather than drawn per
+    /// frame, and drawn outside the tilt and the drift, so Float slides the picture
+    /// underneath while the words stay exactly where they were set.
     /// </summary>
     private SKImage BuildBleedLayer(LayoutContext context)
     {
@@ -402,7 +402,7 @@ public class StoryCardRenderer
         // three lines has to be sitting on the dark part of the ramp, not above it.
         DrawBleedScrim(canvas, titleTop - 60f, deep, !background.IsAuto);
 
-        DrawBleedBrand(canvas, context, Margin, BleedBrandTop);
+        DrawBleedBrand(canvas, context, BleedBrandTop);
 
         if (!string.IsNullOrWhiteSpace(context.FooterText))
         {
@@ -537,22 +537,30 @@ public class StoryCardRenderer
     private const float BleedLogoMaxWidth = 820f;
 
     /// <summary>
-    /// Where the mark hangs from. The safe line rather than the margin the type uses,
-    /// because Instagram's own chrome comes further down the card than it does in from
-    /// the sides — a lockup on an 88pt top margin sits under the account name.
+    /// Where the mark sits: hard into the top left corner, so a logo bleeds off both
+    /// edges the way the picture under it does. It is deliberately outside the safe
+    /// band every other element respects — Instagram lays its own chrome across this
+    /// strip, so a mark up here can be partly covered while the story is being viewed.
+    /// That is the trade the corner asks for.
     /// </summary>
-    private const float BleedBrandTop = Card.SafeTop;
+    private const float BleedBrandTop = 0f;
 
     /// <summary>
-    /// The mark in the top left, on the same left margin as everything else on the
-    /// card, with the whole bottom of the card left to the type. A configured logo is
-    /// drawn on its own — a lockup already says whose server this is — and without one
-    /// the wordmark is set as type instead, so the corner is never empty.
+    /// Type cannot sit on the canvas edge the way a picture can — glyphs touching it
+    /// read as clipped rather than as bled — so the wordmark keeps this much air and
+    /// only the logo goes truly flush.
+    /// </summary>
+    private const float BleedWordmarkInset = 30f;
+
+    /// <summary>
+    /// The mark in the top left corner, with the whole bottom of the card left to the
+    /// type. A configured logo is drawn on its own — a lockup already says whose server
+    /// this is — and without one the wordmark is set as type instead, so the corner is
+    /// never empty.
     /// </summary>
     private void DrawBleedBrand(
         SKCanvas canvas,
         LayoutContext context,
-        float margin,
         float top)
     {
         var palette = context.Palette;
@@ -563,7 +571,7 @@ public class StoryCardRenderer
             var aspect = logo.Width / (float)logo.Height;
             var width = Math.Min(BleedLogoMaxWidth, BleedLogoHeight * aspect);
             var height = width / aspect;
-            var rect = SKRect.Create(margin, top, width, height);
+            var rect = SKRect.Create(0f, top, width, height);
 
             using var image = SKImage.FromBitmap(logo);
             using var paint = new SKPaint
@@ -587,8 +595,10 @@ public class StoryCardRenderer
             ImageFilter = BleedTextShadow(palette, 8f)
         };
 
-        canvas.DrawText("Shared with", margin, top + 34f, SKTextAlign.Left, small, muted);
-        canvas.DrawText("Story Share", margin, top + 88f, SKTextAlign.Left, large, strong);
+        canvas.DrawText(
+            "Shared with", BleedWordmarkInset, top + BleedWordmarkInset + 26f, SKTextAlign.Left, small, muted);
+        canvas.DrawText(
+            "Story Share", BleedWordmarkInset, top + BleedWordmarkInset + 80f, SKTextAlign.Left, large, strong);
     }
 
     /// <summary>
