@@ -11,6 +11,16 @@ looping video, then hands it to your phone.
 It does not post anything anywhere: Instagram has no API for posting to a personal
 account's story, so the plugin makes the file and you share it yourself.
 
+## Demo
+
+[![Story Share in use — opening the dialog from a movie's detail page, switching styles, picking a background, then rendering an animated card](docs/demo.gif)](docs/demo.mp4)
+
+*The Story dialog on a movie's detail page: cycling through styles, picking a
+background, switching the format to video and choosing an animation, and dropping the
+item's own tagline in as the caption. [Full-quality MP4](docs/demo.mp4).*
+
+---
+
 ![Card styles rendered with placeholder artwork](docs/themes.png)
 
 *Layout preview rendered with placeholder artwork — real cards use your library's posters and covers.*
