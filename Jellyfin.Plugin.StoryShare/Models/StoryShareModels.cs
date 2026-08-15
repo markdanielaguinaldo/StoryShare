@@ -26,8 +26,27 @@ public sealed record AnimationSpec(int Width, int Height, int FrameCount, double
     /// </summary>
     public static AnimationSpec Spin { get; } = new(1080, 1920, 144, 24d, 2);
 
-    public static AnimationSpec For(CardTheme theme) =>
-        theme == CardTheme.Vinyl ? Spin : Video;
+    /// <summary>
+    /// Float and Pulse's loop: four seconds of it, played twice.
+    ///
+    /// Both movements are built from a whole number of cycles per loop, because
+    /// that is the only way they meet themselves at the seam — so, exactly as with
+    /// <see cref="Spin"/>, the only way to slow one down is to give it longer to
+    /// cover the same cycles. Doubling the loop halves both: Pulse's two beats drop
+    /// from one a second to one every two, and Float takes four seconds to trace
+    /// its figure of eight rather than two. 24 fps rather than 30 keeps the extra
+    /// frames affordable, and neither movement is now fast enough to judder at it.
+    /// </summary>
+    public static AnimationSpec Gentle { get; } = new(1080, 1920, 96, 24d, 2);
+
+    /// <summary>
+    /// Vinyl keeps its own loop whatever movement is chosen: the record has to turn
+    /// exactly once per loop, and a shorter or longer one would tear the seam.
+    /// </summary>
+    public static AnimationSpec For(CardTheme theme, CardAnimation animation = CardAnimation.Auto) =>
+        theme == CardTheme.Vinyl
+            ? Spin
+            : animation is CardAnimation.Float or CardAnimation.Pulse ? Gentle : Video;
 
     /// <summary>Seconds of finished video.</summary>
     public double Duration => FrameCount / Fps * LoopCount;

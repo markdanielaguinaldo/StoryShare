@@ -704,14 +704,19 @@ public class StoryCardRenderer
 
     private CardScene BuildTicket(LayoutContext context)
     {
-        const float TicketWidth = 780f;
-        const float Pad = 40f;
-        const float BandAspect = 1.62f;
+        const float MaxTicketWidth = 900f;
+        const float MinTicketWidth = 760f;
+        const float Pad = 44f;
+        const float FallbackAspect = 1.62f;
+        const float MinBandHeight = 260f;
         const float BandGap = 36f;
         const float StubGap = 34f;
         const float StubHeight = 176f;
         const float NotchRadius = 26f;
         const float Corner = 18f;
+        // Enough that a ticket using every pixel of height still reads as printed
+        // on the card rather than bleeding off it.
+        const float Breath = 40f;
 
         var stock = PaperStock(context.Palette.Background);
 
@@ -722,24 +727,39 @@ public class StoryCardRenderer
         var textHeight = TotalHeight(lines);
 
         var available = context.ContentBottom(90f) - Card.SafeTop;
-        var bandWidth = TicketWidth - (Pad * 2);
-
-        // A cover cropped to a wide band, not the whole poster: a ticket's image
-        // strip is landscape, and a 2:3 poster printed at this width would make the
-        // ticket taller than the card.
-        var bandHeight = context.Art is null ? 0f : bandWidth / BandAspect;
 
         float TicketHeight(float band) =>
             Pad + band + (band > 0f ? BandGap : 0f) + textHeight + StubGap + StubHeight;
 
-        if (bandHeight > 0f && TicketHeight(bandHeight) > available)
+        // The image plate takes the cover's own shape, and the ticket is cut to fit
+        // around it. A fixed landscape band meant a 2:3 poster was set whole inside
+        // a window three times its width — a stamp on a mostly blurred plate. Match
+        // the shapes and the cover simply fills the plate at whatever size the
+        // ticket has room for, which is several times the area either way.
+        var maxBandWidth = MaxTicketWidth - (Pad * 2);
+        var aspect = context.Art is null
+            ? FallbackAspect
+            : context.Art.Width / (float)context.Art.Height;
+
+        var bandWidth = 0f;
+        var bandHeight = 0f;
+
+        if (context.Art is not null)
         {
-            bandHeight = Math.Max(200f, bandHeight - (TicketHeight(bandHeight) - available));
+            var budget = available - Breath - TicketHeight(0f) - BandGap;
+            bandHeight = Math.Max(MinBandHeight, Math.Min(maxBandWidth / aspect, budget));
+            bandWidth = Math.Min(bandHeight * aspect, maxBandWidth);
+            bandHeight = bandWidth / aspect;
         }
+
+        // Never narrower than the printing it has to carry: the text block is laid
+        // out to a fixed width, so a portrait plate leaves stock either side of it
+        // rather than pinching the title.
+        var ticketWidth = Math.Clamp(bandWidth + (Pad * 2), MinTicketWidth, MaxTicketWidth);
 
         var height = TicketHeight(bandHeight);
         var top = Card.SafeTop + Math.Max(0f, (available - height) / 2f);
-        var ticketRect = SKRect.Create(Card.CenterX - (TicketWidth / 2f), top, TicketWidth, height);
+        var ticketRect = SKRect.Create(Card.CenterX - (ticketWidth / 2f), top, ticketWidth, height);
 
         var bandRect = bandHeight > 0f
             ? SKRect.Create(Card.CenterX - (bandWidth / 2f), top + Pad, bandWidth, bandHeight)
@@ -981,10 +1001,12 @@ public class StoryCardRenderer
     private CardScene BuildCassette(LayoutContext context)
     {
         // A C-cassette shell is 100x64mm, and looking wrong here is immediately
-        // obvious to anyone who has held one.
-        const float BodyWidth = 880f;
+        // obvious to anyone who has held one. The shell is as wide as the card can
+        // carry, because that aspect is fixed and the height it gives is the only
+        // thing capping how large the cover printed on it can be.
+        const float BodyWidth = 1000f;
         const float BodyAspect = 1.5625f;
-        const float Gap = 88f;
+        const float Gap = 76f;
         const float Corner = 20f;
 
         var lines = BuildTextBlock(context, context.Palette, SpecFor(CardTheme.Cassette));
@@ -999,31 +1021,67 @@ public class StoryCardRenderer
         // The label sticker and the tape window below it, centred in the shell as a
         // pair. Hanging them off the top edge left more empty plastic below the
         // window than above the label, which read as a shell put together crooked.
-        const float LabelHeightFraction = 0.48f;
-        const float WindowHeightFraction = 0.32f;
-        const float InnerGap = 24f;
+        //
+        // The window is a strip, as it is on a real shell, and the label takes every
+        // millimetre left over: on a landscape aspect the shell is fixed, so the
+        // label's height is the whole budget a portrait cover has to work with.
+        const float WindowHeightFraction = 0.20f;
+        const float ShellMargin = 26f;
+        const float InnerGap = 18f;
+        const float SideInset = 36f;
+        const float StickerPad = 22f;
+        const float FallbackAspect = 1.6f;
 
-        var labelHeight = bodyHeight * LabelHeightFraction;
         var windowHeight = bodyHeight * WindowHeightFraction;
-        var innerTop = bodyRect.Top + ((bodyHeight - (labelHeight + InnerGap + windowHeight)) / 2f);
+        var stickerHeight = bodyHeight - (ShellMargin * 2f) - InnerGap - windowHeight;
+        var innerTop = bodyRect.Top + ((bodyHeight - (stickerHeight + InnerGap + windowHeight)) / 2f);
 
-        var labelRect = SKRect.Create(
-            bodyRect.Left + 38f,
+        var stickerRect = SKRect.Create(
+            bodyRect.Left + SideInset,
             innerTop,
-            BodyWidth - 76f,
-            labelHeight);
+            BodyWidth - (SideInset * 2f),
+            stickerHeight);
+
+        // The cover is printed on the sticker at its own shape, as large as the
+        // sticker will take, rather than being set whole inside a fixed wide slot —
+        // that left a 2:3 poster as a sliver on a blurred bed. Matched shapes mean
+        // the cover fills its plate outright, and the sticker keeps its width so a
+        // portrait cover reads as printed on a label rather than floating on bare
+        // plastic.
+        var aspect = context.Art is null
+            ? FallbackAspect
+            : context.Art.Width / (float)context.Art.Height;
+
+        var labelHeight = stickerHeight - (StickerPad * 2f);
+        var labelWidth = labelHeight * aspect;
+        var maxLabelWidth = stickerRect.Width - (StickerPad * 2f);
+        if (labelWidth > maxLabelWidth)
+        {
+            labelWidth = maxLabelWidth;
+            labelHeight = labelWidth / aspect;
+        }
+
+        // Nothing to print: the sticker stays, ruled right across, which is what a
+        // blank mixtape label looks like anyway.
+        var labelRect = context.Art is null
+            ? SKRect.Empty
+            : SKRect.Create(
+                Card.CenterX - (labelWidth / 2f),
+                stickerRect.MidY - (labelHeight / 2f),
+                labelWidth,
+                labelHeight);
 
         var windowRect = SKRect.Create(
-            bodyRect.Left + 122f,
-            labelRect.Bottom + InnerGap,
-            BodyWidth - 244f,
+            bodyRect.Left + 140f,
+            stickerRect.Bottom + InnerGap,
+            BodyWidth - 280f,
             windowHeight);
 
-        var hubRadius = windowRect.Height * 0.28f;
+        var hubRadius = windowRect.Height * 0.30f;
         var leftHub = new SKPoint(windowRect.Left + (windowRect.Width * 0.23f), windowRect.MidY);
         var rightHub = new SKPoint(windowRect.Left + (windowRect.Width * 0.77f), windowRect.MidY);
 
-        var decorLayer = BuildCassetteLayer(bodyRect, labelRect, windowRect, leftHub, rightHub, hubRadius, context.Palette, Corner);
+        var decorLayer = BuildCassetteLayer(bodyRect, stickerRect, labelRect, windowRect, leftHub, rightHub, hubRadius, context.Palette, Corner);
         var textLayer = BuildOverlayLayer(lines, bodyRect.Bottom + Gap, Footer(context), null);
         Dispose(lines);
 
@@ -1045,9 +1103,10 @@ public class StoryCardRenderer
         };
     }
 
-    /// <summary>Shell, label plate, tape window and the static tape packs.</summary>
+    /// <summary>Shell, label sticker, tape window and the static tape packs.</summary>
     private static SKImage BuildCassetteLayer(
         SKRect body,
+        SKRect sticker,
         SKRect label,
         SKRect window,
         SKPoint leftHub,
@@ -1104,10 +1163,26 @@ public class StoryCardRenderer
             canvas.DrawRoundRect(shell, edge);
         }
 
-        // Under the label, so a missing cover reads as a blank sticker.
+        // Under the print, so a missing cover reads as a blank sticker. The sticker
+        // keeps the shell's width whatever shape the cover is, which is what stops a
+        // portrait poster from looking stuck to bare plastic.
         using (var plate = new SKPaint { IsAntialias = true, Color = new SKColor(0xE9, 0xE4, 0xD8) })
         {
-            canvas.DrawRoundRect(new SKRoundRect(label, 8f), plate);
+            canvas.DrawRoundRect(new SKRoundRect(sticker, 8f), plate);
+        }
+
+        DrawLabelRules(canvas, sticker, label);
+
+        // A print sits on paper, so it gets paper's shadow rather than floating.
+        if (!label.IsEmpty)
+        {
+            using var seat = new SKPaint
+            {
+                IsAntialias = true,
+                Color = new SKColor(0, 0, 0, 60),
+                ImageFilter = SKImageFilter.CreateDropShadowOnly(0, 4f, 8f, 8f, new SKColor(0, 0, 0, 90))
+            };
+            canvas.DrawRoundRect(new SKRoundRect(label, 8f), seat);
         }
 
         var pane = new SKRoundRect(window, 12f);
@@ -1140,6 +1215,53 @@ public class StoryCardRenderer
         }
 
         return surface.Snapshot();
+    }
+
+    /// <summary>
+    /// The ruled lines either side of the print — the ones a mixtape's track list
+    /// gets written on. They are what makes the sticker read as a label rather than
+    /// as a mount: a portrait cover leaves a lot of paper clear, and blank paper
+    /// looks like a mistake where ruled paper looks like a cassette.
+    /// </summary>
+    private static void DrawLabelRules(SKCanvas canvas, SKRect sticker, SKRect label)
+    {
+        const int Rules = 4;
+        const float MinMargin = 96f;
+        const float Inset = 26f;
+
+        // Too little paper clear of the print to rule: a landscape cover fills the
+        // sticker almost edge to edge, and stubs of line either side read as damage.
+        if (!label.IsEmpty && label.Left - sticker.Left < MinMargin)
+        {
+            return;
+        }
+
+        using var rule = new SKPaint
+        {
+            Style = SKPaintStyle.Stroke,
+            StrokeWidth = 3f,
+            IsAntialias = true,
+            Color = new SKColor(0x8C, 0x86, 0x78, 120)
+        };
+
+        var band = label.IsEmpty ? sticker : label;
+        var span = band.Height * 0.72f;
+        var step = span / (Rules - 1);
+        var first = band.MidY - (span / 2f);
+
+        for (var i = 0; i < Rules; i++)
+        {
+            var y = first + (i * step);
+
+            if (label.IsEmpty)
+            {
+                canvas.DrawLine(sticker.Left + Inset, y, sticker.Right - Inset, y, rule);
+                continue;
+            }
+
+            canvas.DrawLine(sticker.Left + Inset, y, label.Left - Inset, y, rule);
+            canvas.DrawLine(label.Right + Inset, y, sticker.Right - Inset, y, rule);
+        }
     }
 
     /// <summary>The two toothed hubs, turning a whole revolution across the loop.</summary>

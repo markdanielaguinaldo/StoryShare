@@ -55,9 +55,12 @@ public class VideoAnimationEncoder
                 "No ffmpeg is configured on this server, so animated cards cannot be produced.");
         }
 
-        // Vinyl needs a longer loop to spin slowly and still meet itself at the seam.
-        var theme = options.Theme ?? Plugin.Instance?.Configuration.Theme ?? CardTheme.Poster;
-        var spec = AnimationSpec.For(theme);
+        // Vinyl needs a longer loop to spin slowly and still meet itself at the seam,
+        // and Float and Pulse are slowed down the same way.
+        var config = Plugin.Instance?.Configuration;
+        var theme = options.Theme ?? config?.Theme ?? CardTheme.Poster;
+        var animation = options.Animation ?? config?.Animation ?? CardAnimation.Auto;
+        var spec = AnimationSpec.For(theme, animation);
         var started = Stopwatch.StartNew();
 
         var workDir = Path.Combine(_appPaths.TempDirectory, "storyshare-" + Guid.NewGuid().ToString("N"));

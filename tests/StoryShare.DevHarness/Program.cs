@@ -215,7 +215,10 @@ Console.WriteLine($"cassette loop closes cleanly       : {tapeSeam < tapeStep * 
 // hold is that the seam is no bigger than an ordinary step.
 foreach (var animation in new[] { CardAnimation.Float, CardAnimation.Pulse })
 {
-    var moveSpec = Jellyfin.Plugin.StoryShare.Models.AnimationSpec.Video;
+    // The spec the encoder would pick, not the default one: Float and Pulse run on
+    // a longer loop so they move at half the speed, and a seam measured on the
+    // short loop would not be the seam anyone ever sees.
+    var moveSpec = Jellyfin.Plugin.StoryShare.Models.AnimationSpec.For(CardTheme.Ticket, animation);
     var moveRaw = new MemoryStream();
     await renderer.RenderFramesAsync(
         movie,
@@ -241,6 +244,10 @@ foreach (var animation in new[] { CardAnimation.Float, CardAnimation.Pulse })
     Console.WriteLine($"{animation,-6} per-frame step             : {moveStep:F2}");
     Console.WriteLine($"{animation,-6} seam step (want <= a step) : {moveSeam:F2}");
     Console.WriteLine($"{animation,-6} loop closes cleanly        : {moveFar > 1 && moveSeam <= moveStep * 1.5}");
+    Console.WriteLine(
+        $"{animation,-6} slower than the plain loop : "
+        + $"{moveSpec.FrameCount / moveSpec.Fps:F0}s loop, {moveSpec.Duration:F0}s video "
+        + $"({moveSpec.FrameCount / moveSpec.Fps / (Jellyfin.Plugin.StoryShare.Models.AnimationSpec.Video.FrameCount / Jellyfin.Plugin.StoryShare.Models.AnimationSpec.Video.Fps):F1}x)");
 }
 
 // A still is the scene at phase 0 whatever the animation, so the picture must not

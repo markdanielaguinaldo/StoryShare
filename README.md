@@ -70,8 +70,8 @@ in the plugin settings:
 | **Polaroid** | Cover set into a square print on a tilted paper card, caption printed on the card below it. |
 | **Vinyl** | Cover cut into a record — grooves, label ring and spindle hole. Spins in the video, at 10 rpm. |
 | **Stack** | Cover fanned out as a pile of cards, the front one face up and in focus. |
-| **Ticket** | Cinema stub: artwork in a wide band, a perforated tear across the bottom and *admit one* printed on the torn-off part. |
-| **Cassette** | Cover as the label on a tape shell. The hubs turn in the video while the label stays put. |
+| **Ticket** | Cinema stub: artwork on a plate cut to the cover's own shape, a perforated tear across the bottom and *admit one* printed on the torn-off part. |
+| **Cassette** | Cover printed on a ruled label sticker across a tape shell. The hubs turn in the video while the label stays put. |
 | **Review** | Framed card, poster small, with a five-star row and your caption set as the review itself. |
 
 The accent colour — chip outlines, the footer dot, the record's rim, the edges of the
@@ -80,10 +80,9 @@ settings.
 
 ### Covers in a window that is not their shape
 
-Some styles put the artwork in a slot with a shape of its own: a ticket's image band
-is landscape, a cassette's label is a wide sticker, a polaroid's print is square. Crop
-a 2:3 poster to fill one of those and what is left is a middle strip with neither the
-title nor anyone's face in it.
+Some styles put the artwork in a slot with a shape of its own: a polaroid's print is
+square, a vinyl's label is a circle. Crop a 2:3 poster to fill one of those and what is
+left is a middle strip with neither the title nor anyone's face in it.
 
 So when the artwork and its window are more than a quarter off each other's shape, the
 cover is **set whole inside the window** on a blurred, darkened copy of itself instead
@@ -93,6 +92,16 @@ circle, and a fitted rectangle turning behind a round hole is not a record.
 
 The bed is baked once at build time; only the push-in moves per frame, and the cover
 is fitted with a margin so it grows into that instead of being clipped by it.
+
+**Ticket and Cassette avoid the question entirely, by cutting the window to the cover
+rather than the cover to the window.** Fitting a poster into a fixed landscape band left
+it a stamp on a plate three times its width — technically the whole picture, and far too
+small to be the point of the card. So the ticket's image plate now takes the cover's own
+aspect and grows to whatever height the stub has room for, and the ticket is cut around
+it; the cassette's print does the same inside its label, and the sticker keeps the
+shell's full width with ruled lines either side so a portrait cover reads as printed on
+a label rather than stuck to bare plastic. Both fill their plate outright, at three to
+five times the area they had.
 
 ### The footer line
 
@@ -169,6 +178,13 @@ turns; Pulse beats on `(1 - cos 4πp) / 2`. The dev harness asserts all of it �
 per-pixel difference across the loop seam is 0.00 versus 2.88 mid-loop for the default,
 and no more than an ordinary frame step for the other two.
 
+That construction is also what sets their **speed**. Both are whole numbers of cycles
+per loop, so — exactly as with Vinyl's spin — the only way to slow one down is to give
+it a longer loop to cover the same cycles in. Both run on `AnimationSpec.Gentle`: 96
+frames at 24 fps, a 4 second loop played twice, which halves them against the 2 second
+default. Pulse breathes once every two seconds and Float takes four seconds to trace its
+figure of eight.
+
 The default lives in **Dashboard → Plugins → Story Share**, and travels in the share
 link so a card opened on a phone moves the way it did in the preview.
 
@@ -180,7 +196,7 @@ boring enough that Stories always accepts it:
 | --- | --- |
 | Container / codec | MP4, H.264 **High**, `yuv420p` (4:4:4 gets rejected) |
 | Size | 1080x1920 |
-| Length | 6 s — a 2 s loop repeated 3x (Vinyl: 12 s, a 6 s loop repeated twice) |
+| Length | 6 s — a 2 s loop repeated 3x (Float and Pulse: 8 s, a 4 s loop repeated twice; Vinyl: 12 s, a 6 s loop repeated twice) |
 | Audio | silent AAC stereo 44.1 kHz — Instagram is unreliable with video carrying no audio stream at all |
 | | `-movflags +faststart` |
 
