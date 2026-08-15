@@ -77,7 +77,7 @@ in the plugin settings:
 | Style | What it looks like |
 | --- | --- |
 | **Poster** | Cover on a blurred version of its own artwork. |
-| **Full bleed** | The cover printed edge to edge — whichever of the poster and the backdrop loses least to the crop — with the type set against the bottom left (title, a rule, a row of facts with icons), your mark in the corner opposite it and the footer line along the very bottom. |
+| **Full bleed** | The cover printed edge to edge — whichever of the poster and the backdrop loses least to the crop — with everything set against the bottom left: the title, a rule, a row of facts with icons, your mark, and the footer line along the very bottom. |
 | **Minimal** | Flat background, no photographic backdrop. |
 | **Polaroid** | Cover set into a square print on a tilted paper card, caption printed on the card below it. |
 | **Vinyl** | Cover cut into a record — grooves, label ring and spindle hole. Spins in the video, at 10 rpm. |
@@ -95,6 +95,12 @@ settings.
 Some styles put the artwork in a slot with a shape of its own: a polaroid's print is
 square, a vinyl's label is a circle. Crop a 2:3 poster to fill one of those and what is
 left is a middle strip with neither the title nor anyone's face in it.
+
+**Full bleed answers to the background colour**, which is how you rescue a card whose
+cover has swallowed its own words. A colour chosen by hand is laid on harder than the
+automatic one — it was picked for a reason — and a pale choice flips the type dark, the
+same way a flat theme does. Leave it on *match the artwork* and the scrim stays out of
+the picture's way.
 
 So when the artwork and its window are more than a quarter off each other's shape, the
 cover is **set whole inside the window** on a blurred, darkened copy of itself instead
@@ -131,10 +137,11 @@ twice.
 ### Your own logo on a Full bleed card
 
 **Brand logo** in the settings takes a full path to an image on the server, and Full
-bleed prints it in the bottom right — your server's lockup, not this plugin's. Leave
-it empty and the corner is set as type instead, so the card never has a hole in it.
-The stack of type above stops wherever the mark starts, so a tall logo simply takes
-its room from the picture rather than landing on the title.
+bleed prints it above the footer line on the same left margin as everything else —
+your server's lockup, not this plugin's. Leave it empty and the corner is set as type
+instead, so the card never has a hole in it. The stack of type above stops wherever
+the mark starts, so a tall logo simply takes its room from the picture rather than
+landing on the title.
 
 A path rather than an upload because a plugin has nowhere to put an uploaded file that
 a server upgrade will not wipe, and any server that has a logo already keeps it

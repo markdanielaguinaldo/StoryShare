@@ -133,9 +133,12 @@ public class StoryCardRenderer
         var accent = ResolveAccent(options.AccentColor ?? config.AccentColor, art);
         var background = BackgroundPresets.Resolve(options.Background, config, accent);
 
-        // Only a flat theme exposes the background colour directly. Poster and Full
-        // bleed keep their dark scrim, so their text stays light whatever the preset.
-        var palette = new Palette(accent, background, flat && background.IsLight);
+        // Poster's bed is a blurred photograph under a heavy scrim, so its type stays
+        // light whatever the preset. Full bleed paints its scrim in the chosen colour
+        // — that is the point of choosing one when a busy cover is fighting the words
+        // — so a pale preset there has to flip the type dark like a flat theme does.
+        var readsLight = (flat || theme == CardTheme.FullBleed) && background.IsLight;
+        var palette = new Palette(accent, background, readsLight);
 
         using var bold = CreateTypeface(SKFontStyleWeight.Bold);
         using var regular = CreateTypeface(SKFontStyleWeight.Normal);
@@ -315,10 +318,10 @@ public class StoryCardRenderer
 
     /// <summary>
     /// Everything printed over the picture, in one layer: the stack of type up the
-    /// bottom left, the mark in the corner opposite it, and the now-playing line along
-    /// the very bottom. Baked rather than drawn per frame, and drawn outside the tilt
-    /// and the drift, so Float slides the picture underneath while the words stay
-    /// exactly where they were set.
+    /// bottom left, the mark under it and the now-playing line along the very bottom,
+    /// all on the same margin. Baked rather than drawn per frame, and drawn outside
+    /// the tilt and the drift, so Float slides the picture underneath while the words
+    /// stay exactly where they were set.
     /// </summary>
     private SKImage BuildBleedLayer(LayoutContext context)
     {
@@ -329,7 +332,9 @@ public class StoryCardRenderer
         const float FactHeight = 46f;
         // The mark sits above the now-playing line rather than beside it. Side by side
         // they would have to share 904 points between them, and the one that gave way
-        // would be the logo — which is the half nobody can read at half the size.
+        // would be the logo — which is the half nobody can read at half the size. Both
+        // hang off the same left margin as the title, so the card has one edge to read
+        // down rather than two.
         const float BrandBottom = 1668f;
 
         var palette = context.Palette;
@@ -402,7 +407,7 @@ public class StoryCardRenderer
 
         // The scrim goes down first and is anchored to the type: a title that wraps to
         // three lines has to be sitting on the dark part of the ramp, not above it.
-        DrawBleedScrim(canvas, titleTop - 60f, deep);
+        DrawBleedScrim(canvas, titleTop - 60f, deep, !background.IsAuto);
 
         DrawBleedBrand(canvas, context, logo, Margin, BrandBottom);
 
@@ -434,6 +439,16 @@ public class StoryCardRenderer
 
         return surface.Snapshot();
     }
+
+    /// <summary>
+    /// The soft shadow that lifts light type off a picture — and nothing at all when
+    /// the chosen background has flipped the type dark, where a black shadow under
+    /// black letters only reads as a smudge.
+    /// </summary>
+    private static SKImageFilter? BleedTextShadow(Palette palette, float radius) =>
+        palette.TextShadow > 0f
+            ? SKImageFilter.CreateDropShadow(0, 2f, radius, radius, new SKColor(0, 0, 0, 150))
+            : null;
 
     /// <summary>The caption, set as the tagline it stands in for rather than as a quote.</summary>
     private static TextBlock? BuildBleedComment(LayoutContext context, float maxWidth, float margin)
@@ -469,18 +484,25 @@ public class StoryCardRenderer
     /// a purely vertical ramp has to be almost opaque before left-aligned type over a
     /// bright corner is safe, and that buries the picture.
     /// </summary>
-    private static void DrawBleedScrim(SKCanvas canvas, float typeTop, SKColor deep)
+    private static void DrawBleedScrim(SKCanvas canvas, float typeTop, SKColor deep, bool chosen)
     {
         var full = new SKRect(0, 0, Card.Width, Card.Height);
 
         var start = Math.Clamp(typeTop / Card.Height, 0.2f, 0.8f);
+
+        // A colour picked by hand is picked for a reason — almost always a cover busy
+        // enough to swallow the words — so it is laid on harder than the automatic one,
+        // which is only ever trying to stay out of the picture's way.
+        var mid = (byte)(chosen ? 205 : 170);
+        var foot = (byte)(chosen ? 255 : 246);
+        var side = (byte)(chosen ? 185 : 150);
 
         using (var bottom = new SKPaint
         {
             Shader = SKShader.CreateLinearGradient(
                 new SKPoint(0, 0),
                 new SKPoint(0, Card.Height),
-                new[] { deep.WithAlpha(0), deep.WithAlpha(170), deep.WithAlpha(246) },
+                new[] { deep.WithAlpha(0), deep.WithAlpha(mid), deep.WithAlpha(foot) },
                 new[] { start, (start + 1f) / 2f, 1f },
                 SKShaderTileMode.Clamp)
         })
@@ -493,7 +515,7 @@ public class StoryCardRenderer
             Shader = SKShader.CreateLinearGradient(
                 new SKPoint(0, 0),
                 new SKPoint(Card.Width * 0.72f, 0),
-                new[] { deep.WithAlpha(150), deep.WithAlpha(0) },
+                new[] { deep.WithAlpha(side), deep.WithAlpha(0) },
                 null,
                 SKShaderTileMode.Clamp)
         })
@@ -541,10 +563,10 @@ public class StoryCardRenderer
     }
 
     /// <summary>
-    /// The mark in the bottom right, sitting opposite the type rather than over it. A
-    /// configured logo is drawn on its own — a lockup already says whose server this
-    /// is — and without one the wordmark is set as type instead, so the corner is
-    /// never empty.
+    /// The mark above the now-playing line, on the same left margin as everything
+    /// else on the card. A configured logo is drawn on its own — a lockup already says
+    /// whose server this is — and without one the wordmark is set as type instead, so
+    /// the corner is never empty.
     /// </summary>
     private static void DrawBleedBrand(
         SKCanvas canvas,
@@ -553,7 +575,6 @@ public class StoryCardRenderer
         float margin,
         float bottom)
     {
-        var right = Card.Width - margin;
         var palette = context.Palette;
 
         if (logo is not null)
@@ -561,11 +582,14 @@ public class StoryCardRenderer
             var aspect = logo.Width / (float)logo.Height;
             var width = Math.Min(BleedLogoMaxWidth, BleedLogoHeight * aspect);
             var height = width / aspect;
-            var rect = SKRect.Create(right - width, bottom - height, width, height);
+            var rect = SKRect.Create(margin, bottom - height, width, height);
 
             using var image = SKImage.FromBitmap(logo);
             using var paint = new SKPaint
             {
+                // A lockup is usually drawn for a dark ground, so it keeps its shadow
+                // on a pale scrim too — it is what separates a white wordmark from
+                // white paper.
                 ImageFilter = SKImageFilter.CreateDropShadow(0, 3f, 10f, 10f, new SKColor(0, 0, 0, 150))
             };
             canvas.DrawImage(image, new SKRect(0, 0, logo.Width, logo.Height), rect, Card.Sampling, paint);
@@ -579,11 +603,11 @@ public class StoryCardRenderer
         {
             IsAntialias = true,
             Color = palette.Title,
-            ImageFilter = SKImageFilter.CreateDropShadow(0, 3f, 8f, 8f, new SKColor(0, 0, 0, 160))
+            ImageFilter = BleedTextShadow(palette, 8f)
         };
 
-        canvas.DrawText("Shared with", right, bottom - 62f, SKTextAlign.Right, small, muted);
-        canvas.DrawText("Story Share", right, bottom - 8f, SKTextAlign.Right, large, strong);
+        canvas.DrawText("Shared with", margin, bottom - 62f, SKTextAlign.Left, small, muted);
+        canvas.DrawText("Story Share", margin, bottom - 8f, SKTextAlign.Left, large, strong);
     }
 
     /// <summary>
@@ -753,7 +777,7 @@ public class StoryCardRenderer
         {
             IsAntialias = true,
             Color = palette.Subtitle,
-            ImageFilter = SKImageFilter.CreateDropShadow(0, 2f, 6f, 6f, new SKColor(0, 0, 0, 140))
+            ImageFilter = BleedTextShadow(palette, 6f)
         };
         using var ink = new SKPaint
         {

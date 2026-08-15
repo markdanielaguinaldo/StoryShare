@@ -108,6 +108,10 @@ await Save("bg-crimson-polaroid", movie, new StoryCardOptions { Theme = CardThem
 await Save("bg-paper-polaroid", movie, new StoryCardOptions { Theme = CardTheme.Polaroid, Background = "paper" });
 await Save("bg-ocean-poster", movie, new StoryCardOptions { Theme = CardTheme.Poster, Background = "ocean" });
 await Save("bg-crimson-fullbleed", movie, new StoryCardOptions { Theme = CardTheme.FullBleed, Background = "crimson" });
+// A colour is picked on Full bleed to rescue words a busy cover is swallowing, so the
+// scrim goes on harder than the automatic one and a pale choice has to flip the type
+// dark — the same trap Polaroid's caption fell into.
+await Save("bg-paper-fullbleed", movie, new StoryCardOptions { Theme = CardTheme.FullBleed, Background = "paper" });
 await Save("bg-nonsense", movie, new StoryCardOptions { Theme = CardTheme.Minimal, Background = "not-a-preset" });
 // Ticket prints on its own stock, so a pale preset and a deep one both have to
 // keep the printing legible — the same trap Polaroid's caption fell into.
