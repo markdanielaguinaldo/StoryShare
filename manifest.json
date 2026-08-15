@@ -8,6 +8,14 @@
         "category":  "General",
         "versions":  [
                          {
+                             "version":  "1.2.0.0",
+                             "changelog":  "Covers are set whole inside the ticket band, cassette label and polaroid print instead of being cropped to a middle strip, and the cassette shell is no longer lopsided. Animated cards can now be given a movement: Auto, Float or Pulse, chosen per card once the format is set to video.",
+                             "targetAbi":  "10.11.0.0",
+                             "sourceUrl":  "https://github.com/markdanielaguinaldo/StoryShare/releases/download/v1.2.0.0/storyshare_1.2.0.0.zip",
+                             "checksum":  "78d23f16fedfd9d3bdc8de83b0d57586",
+                             "timestamp":  "2026-08-15T07:48:02Z"
+                         },
+                         {
                              "version":  "1.1.1.0",
                              "changelog":  "The card footer is no longer hardcoded to one server\u0027s name: footer text now expands {server} to this Jellyfin server\u0027s own name, and the old default is migrated automatically.",
                              "targetAbi":  "10.11.0.0",
