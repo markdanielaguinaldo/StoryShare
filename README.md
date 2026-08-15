@@ -67,7 +67,7 @@ in the plugin settings:
 | **Poster** | Cover on a blurred version of its own artwork. |
 | **Full bleed** | Artwork fills the card, text over a bottom gradient. |
 | **Minimal** | Flat background, no photographic backdrop. |
-| **Polaroid** | Cover square-cropped into a tilted paper card, caption printed on the card below it. |
+| **Polaroid** | Cover set into a square print on a tilted paper card, caption printed on the card below it. |
 | **Vinyl** | Cover cut into a record — grooves, label ring and spindle hole. Spins in the video, at 10 rpm. |
 | **Stack** | Cover fanned out as a pile of cards, the front one face up and in focus. |
 | **Ticket** | Cinema stub: artwork in a wide band, a perforated tear across the bottom and *admit one* printed on the torn-off part. |
@@ -77,6 +77,22 @@ in the plugin settings:
 The accent colour — chip outlines, the footer dot, the record's rim, the edges of the
 fanned cards — is pulled from each item's own artwork unless you pin one in the
 settings.
+
+### Covers in a window that is not their shape
+
+Some styles put the artwork in a slot with a shape of its own: a ticket's image band
+is landscape, a cassette's label is a wide sticker, a polaroid's print is square. Crop
+a 2:3 poster to fill one of those and what is left is a middle strip with neither the
+title nor anyone's face in it.
+
+So when the artwork and its window are more than a quarter off each other's shape, the
+cover is **set whole inside the window** on a blurred, darkened copy of itself instead
+of being cropped to fill it. Anything closer than that is cropped as before, since the
+difference would be a few pixels off an edge. Vinyl is left out — its window is a
+circle, and a fitted rectangle turning behind a round hole is not a record.
+
+The bed is baked once at build time; only the push-in moves per frame, and the cover
+is fitted with a margin so it grows into that instead of being clipped by it.
 
 ### The footer line
 
@@ -131,14 +147,30 @@ colour you picked. Preset ids and raw hex are interchangeable everywhere:
 
 ## Animated cards
 
-The **Format** dropdown offers a still JPEG or a video. The animation is a slow
-push-in on the cover inside its fixed frame, a blurred backdrop drifting the other way
-for parallax, and a soft light sweep crossing the artwork once per loop.
+The **Format** dropdown offers a still JPEG or a video. Choosing video reveals an
+**Animation** dropdown — it stays hidden for a still, because a still is the card at
+rest whatever is selected and every option would render the identical image.
 
-It loops seamlessly by construction: the zoom is driven by `(1 - cos 2πp) / 2`, so the
-last frame lands back at the first, and the sweep is fully outside the panel at both
-ends. The dev harness asserts this — mean per-pixel difference across the loop seam is
-0.00 versus 2.88 mid-loop.
+| Animation | What moves |
+| --- | --- |
+| **Auto** | The style's own movement: a slow push-in on the cover, a blurred backdrop drifting the other way for parallax, and a light sweep crossing the artwork once per loop. Vinyl spins, Cassette turns its hubs. |
+| **Float** | The whole card — paper, ticket, shell and the cover inside it — drifts through a figure of eight while the background and the text stay put. |
+| **Pulse** | Two beats per loop: the artwork swells and a wash of accent light breathes behind the card. |
+
+Float moves the card as one object rather than the artwork alone, or a photo would
+slide out of the frame that is meant to be holding it, and it moves in whole pixels so
+the baked layers are never resampled. Pulse's glow is drawn *behind* the card body,
+not over it — on opaque stock like the ticket, painting on top just washes the whole
+card pale.
+
+They loop seamlessly by construction: the zoom is driven by `(1 - cos 2πp) / 2`, so the
+last frame lands back at the first; Float's offsets are sines of a whole number of
+turns; Pulse beats on `(1 - cos 4πp) / 2`. The dev harness asserts all of it — mean
+per-pixel difference across the loop seam is 0.00 versus 2.88 mid-loop for the default,
+and no more than an ordinary frame step for the other two.
+
+The default lives in **Dashboard → Plugins → Story Share**, and travels in the share
+link so a card opened on a phone moves the way it did in the preview.
 
 **Video, not GIF.** Instagram flattens a GIF added to a story into a static image, so
 GIF is useless for the one job this exists to do. The output is an MP4 chosen to be
@@ -290,9 +322,9 @@ by an HMAC signature and an expiry instead.
 
 | Method | Route | Purpose |
 | --- | --- | --- |
-| `GET` | `/StoryShare/Items/{itemId}/Card?theme=&comment=&background=&format=` | Render the card |
-| `POST` | `/StoryShare/Items/{itemId}/ShareLink?theme=&comment=&background=&format=` | Mint a signed, expiring link |
-| `GET` | `/StoryShare/Styles` | Available styles and background presets |
+| `GET` | `/StoryShare/Items/{itemId}/Card?theme=&comment=&background=&animation=&format=` | Render the card |
+| `POST` | `/StoryShare/Items/{itemId}/ShareLink?theme=&comment=&background=&animation=&format=` | Mint a signed, expiring link |
+| `GET` | `/StoryShare/Styles` | Available styles, background presets and animations |
 | `GET` | `/StoryShare/Items/{itemId}/Caption` | The item's tagline, if it has one, for the dialog to offer |
 | `GET` | `/StoryShare/Public/{token}.jpg` | Anonymous, signature-gated card |
 
@@ -301,9 +333,10 @@ of the style and palette lists; both build their controls from it, with a hardco
 fallback if the call fails.
 
 Share links are signed with a key generated on first run and stored in the plugin
-config. Changing it invalidates every outstanding link. The background was added to
-the token payload *after* the expiry rather than beside the theme, so links minted
-before it existed still parse and still render.
+config. Changing it invalidates every outstanding link. The background, and later the
+animation, were **appended** to the token payload rather than slotted in beside the
+theme they belong with, so links minted before either existed still parse and still
+render — the harness holds an older five-field token down for exactly that reason.
 
 ### Caching
 
@@ -313,7 +346,8 @@ video is ~17 s of drawing plus two ffmpeg passes, so the second request is worth
 paying for.
 
 The key covers everything that changes what a card looks like — the item id, its
-`DateModified` and `DateLastSaved`, the style, background, format and caption, plus a
+`DateModified` and `DateLastSaved`, the style, background, animation, format and
+caption, plus a
 fingerprint of the render-affecting settings. That is why nothing listens for a
 config-changed event: editing the footer text or turning off the runtime chip simply
 makes every card rendered under the old settings unreachable, and they age out.
@@ -372,9 +406,14 @@ dotnet run --project tests/StoryShare.DevHarness
 
 It writes the cards to `tests/StoryShare.DevHarness/bin/Release/net9.0/out/` and exits
 non-zero if a token test fails. It covers every style with and without artwork, the
-pale presets, a raw hex background, and all three animation loops — the ordinary
-push-in, Vinyl's spin and Cassette's turning hubs. Worth a look after any change to
-the renderer: byte counts alone have caught bugs, but layout regressions need eyes.
+pale presets, a raw hex background, both directions of the cover fitting, and every
+animation loop — the ordinary push-in, Vinyl's spin, Cassette's turning hubs, plus
+Float and Pulse. Each loop is checked for a seam no bigger than an ordinary frame
+step, and the two chosen animations are also checked for leaving the still image
+untouched. The peak frame of each is written out as `animation-*.png`: numbers catch a
+loop that does not close, but only a picture catches a card that moves badly. Worth a
+look after any change to the renderer — byte counts alone have caught bugs, but layout
+regressions need eyes.
 
 ---
 

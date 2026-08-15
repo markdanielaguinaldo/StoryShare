@@ -35,8 +35,14 @@
             { value: 8, label: 'Review' }
         ],
         backgrounds: [],
+        animations: [
+            { value: 0, label: 'Auto' },
+            { value: 1, label: 'Float' },
+            { value: 2, label: 'Pulse' }
+        ],
         defaultTheme: 0,
-        defaultBackground: 'auto'
+        defaultBackground: 'auto',
+        defaultAnimation: 0
     };
 
     var IS_IOS = /iPad|iPhone|iPod/.test(navigator.userAgent)
@@ -97,12 +103,25 @@
                             bottom: prop(background, 'Bottom')
                         };
                     }),
+                    animations: (prop(data, 'Animations') || []).map(function (animation) {
+                        return {
+                            value: prop(animation, 'Value'),
+                            label: prop(animation, 'Label'),
+                            description: prop(animation, 'Description')
+                        };
+                    }),
                     defaultTheme: prop(data, 'DefaultTheme') || 0,
-                    defaultBackground: prop(data, 'DefaultBackground') || 'auto'
+                    defaultBackground: prop(data, 'DefaultBackground') || 'auto',
+                    defaultAnimation: prop(data, 'DefaultAnimation') || 0
                 };
 
                 if (!styles.themes.length) {
                     styles.themes = FALLBACK_STYLES.themes;
+                }
+                // An older server has no Animations in its response, so keep the
+                // control working rather than showing an empty dropdown.
+                if (!styles.animations.length) {
+                    styles.animations = FALLBACK_STYLES.animations;
                 }
                 return styles;
             })
@@ -175,6 +194,8 @@
             'font:inherit;font-size:.84em;cursor:pointer;text-align:left;line-height:1.4;}',
             '.storyshare-suggest:hover{text-decoration:underline;}',
             '.storyshare-note{font-size:.85em;line-height:1.5;opacity:.75;margin:0;}',
+            '.storyshare-controls [data-role="animationnote"]{margin-top:6px;}',
+            '.storyshare-controls [hidden]{display:none;}',
             '.storyshare-status{font-size:.88em;min-height:1.2em;}',
             '.storyshare-status.error{color:#ff8080;}'
         ].join('');
@@ -221,6 +242,13 @@
             '        <option value="jpg">Still image</option>',
             '        <option value="mp4">Video (for Stories)</option>',
             '      </select>',
+            '    </div>',
+            // Only the video moves, so this row stays out of the way until the
+            // format is one that can.
+            '    <div data-role="animationrow" hidden>',
+            '      <label for="storyshare-animation">Animation</label>',
+            '      <select id="storyshare-animation" data-role="animation"></select>',
+            '      <p class="storyshare-note" data-role="animationnote"></p>',
             '    </div>',
             '    <div>',
             '      <label for="storyshare-comment">Caption on the card (optional)</label>',
@@ -304,11 +332,20 @@
             hint.hidden = false;
         }
 
+        function isVideo() {
+            return el('format').value === 'mp4';
+        }
+
         function query() {
             var params = new URLSearchParams();
             params.set('theme', el('theme').value);
             params.set('format', el('format').value);
             params.set('background', background);
+            // Left off a still on purpose: an image is the card at rest whatever is
+            // selected here, so sending it would only split the server's cache.
+            if (isVideo()) {
+                params.set('animation', el('animation').value);
+            }
             var comment = el('comment').value.trim();
             if (comment) {
                 params.set('comment', comment);
@@ -316,19 +353,29 @@
             return params.toString();
         }
 
+        function syncAnimationRow() {
+            el('animationrow').hidden = !isVideo();
+        }
+
+        function describeAnimation(list) {
+            var value = el('animation').value;
+            var match = list.filter(function (item) { return String(item.value) === String(value); })[0];
+            el('animationnote').textContent = (match && match.description) || '';
+        }
+
         function loadPreview() {
             setReady(false);
             setStatus('');
 
-            var isVideo = el('format').value === 'mp4';
+            var wantsVideo = isVideo();
             // The server draws every frame and runs two ffmpeg passes, so a video is
             // nowhere near instant — say so rather than leaving a blank box.
             showPlaceholder(
-                isVideo
+                wantsVideo
                     ? 'Building the video…\nThis renders every frame, so give it a few seconds.'
                     : 'Rendering your card…',
                 false);
-            updateSaveHint(isVideo);
+            updateSaveHint(wantsVideo);
 
             return request('StoryShare/Items/' + itemId + '/ShareLink?' + query(), 'POST')
                 .then(function (response) { return response.json(); })
@@ -345,7 +392,7 @@
                     // Stay on the placeholder until the media has actually decoded —
                     // an unhidden but still-loading <video> is just a black rectangle.
                     return new Promise(function (resolve, reject) {
-                        if (isVideo) {
+                        if (wantsVideo) {
                             video.onloadeddata = function () { resolve(); };
                             video.onerror = function () { reject(new Error('Could not build the video.')); };
                             video.src = url;
@@ -359,7 +406,7 @@
                         }
                     }).then(function () {
                         el('golink').href = downloadUrl;
-                        showMedia(isVideo);
+                        showMedia(wantsVideo);
                         setReady(true);
                     });
                 })
@@ -460,7 +507,10 @@
 
         // No refresh button, so the card reloads whenever an input changes.
         el('theme').addEventListener('change', reload);
-        el('format').addEventListener('change', reload);
+        el('format').addEventListener('change', function () {
+            syncAnimationRow();
+            reload();
+        });
         el('comment').addEventListener('change', reload);
 
         /*
@@ -502,6 +552,22 @@
                 themeSelect.appendChild(option);
             });
             themeSelect.value = loaded.defaultTheme;
+
+            var animationSelect = el('animation');
+            loaded.animations.forEach(function (animation) {
+                var option = document.createElement('option');
+                option.value = animation.value;
+                option.textContent = animation.label;
+                animationSelect.appendChild(option);
+            });
+            animationSelect.value = loaded.defaultAnimation;
+            animationSelect.addEventListener('change', function () {
+                describeAnimation(loaded.animations);
+                reload();
+            });
+
+            syncAnimationRow();
+            describeAnimation(loaded.animations);
 
             buildSwatches(loaded.backgrounds, loaded.defaultBackground);
             loadPreview();

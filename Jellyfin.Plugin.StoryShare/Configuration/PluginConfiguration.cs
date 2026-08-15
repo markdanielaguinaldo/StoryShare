@@ -33,6 +33,22 @@ public enum CardTheme
     Review = 8
 }
 
+/// <summary>
+/// How an animated card moves. Only the video uses this — a still is always the
+/// scene at phase 0, so every one of these looks identical as an image.
+/// </summary>
+public enum CardAnimation
+{
+    /// <summary>What the style does by itself: push in, spin on Vinyl, hubs on Cassette.</summary>
+    Auto = 0,
+
+    /// <summary>The whole card drifts through a slow figure of eight.</summary>
+    Float = 1,
+
+    /// <summary>Two beats per loop: the artwork swells and an accent glow breathes behind it.</summary>
+    Pulse = 2
+}
+
 public class PluginConfiguration : BasePluginConfiguration
 {
     public PluginConfiguration()
@@ -44,6 +60,12 @@ public class PluginConfiguration : BasePluginConfiguration
     // ----- Card appearance -----
 
     public CardTheme Theme { get; set; } = CardTheme.Poster;
+
+    /// <summary>
+    /// Movement the animated card falls back to. Preselected in the Story dialog,
+    /// where it is only offered once the format is set to video.
+    /// </summary>
+    public CardAnimation Animation { get; set; } = CardAnimation.Auto;
 
     /// <summary>
     /// Small line of text at the bottom of the card. Empty hides it.

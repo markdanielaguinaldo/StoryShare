@@ -12,24 +12,37 @@ namespace Jellyfin.Plugin.StoryShare.Services;
 /// </summary>
 public class ShareTokenService
 {
-    public record ShareToken(Guid ItemId, CardTheme? Theme, string? Comment, string? Background, DateTime ExpiresAt);
+    public record ShareToken(
+        Guid ItemId,
+        CardTheme? Theme,
+        string? Comment,
+        string? Background,
+        CardAnimation? Animation,
+        DateTime ExpiresAt);
 
     private static PluginConfiguration Config =>
         Plugin.Instance?.Configuration ?? throw new InvalidOperationException("Plugin not loaded.");
 
-    public string Create(Guid itemId, CardTheme? theme, string? comment, string? background, TimeSpan lifetime)
+    public string Create(
+        Guid itemId,
+        CardTheme? theme,
+        string? comment,
+        string? background,
+        CardAnimation? animation,
+        TimeSpan lifetime)
     {
         var expires = DateTimeOffset.UtcNow.Add(lifetime).ToUnixTimeSeconds();
 
-        // Background is appended after the expiry rather than slotted in beside the
-        // theme, so links minted before it existed still parse.
+        // Everything new is appended rather than slotted in beside the field it
+        // belongs with, so links minted before it existed still parse.
         var payload = string.Join(
             '|',
             itemId.ToString("N"),
             theme.HasValue ? ((int)theme.Value).ToString(CultureInfo.InvariantCulture) : string.Empty,
             Encode(Encoding.UTF8.GetBytes(comment ?? string.Empty)),
             expires.ToString(CultureInfo.InvariantCulture),
-            Encode(Encoding.UTF8.GetBytes(background ?? string.Empty)));
+            Encode(Encoding.UTF8.GetBytes(background ?? string.Empty)),
+            animation.HasValue ? ((int)animation.Value).ToString(CultureInfo.InvariantCulture) : string.Empty);
 
         var payloadBytes = Encoding.UTF8.GetBytes(payload);
         return Encode(payloadBytes) + "." + Encode(Sign(payloadBytes));
@@ -67,7 +80,7 @@ public class ShareTokenService
         }
 
         var parts = Encoding.UTF8.GetString(payloadBytes).Split('|');
-        if (parts.Length is not (4 or 5)
+        if (parts.Length is not (4 or 5 or 6)
             || !Guid.TryParseExact(parts[0], "N", out var itemId)
             || !long.TryParse(parts[3], NumberStyles.Integer, CultureInfo.InvariantCulture, out var expiresUnix))
         {
@@ -88,6 +101,15 @@ public class ShareTokenService
             theme = (CardTheme)themeValue;
         }
 
+        CardAnimation? animation = null;
+        if (parts.Length > 5
+            && !string.IsNullOrEmpty(parts[5])
+            && int.TryParse(parts[5], NumberStyles.Integer, CultureInfo.InvariantCulture, out var animationValue)
+            && Enum.IsDefined(typeof(CardAnimation), animationValue))
+        {
+            animation = (CardAnimation)animationValue;
+        }
+
         string? comment;
         string? background;
         try
@@ -100,7 +122,7 @@ public class ShareTokenService
             return false;
         }
 
-        result = new ShareToken(itemId, theme, comment, background, expiresAt.UtcDateTime);
+        result = new ShareToken(itemId, theme, comment, background, animation, expiresAt.UtcDateTime);
         return true;
     }
 

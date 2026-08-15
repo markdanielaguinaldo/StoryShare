@@ -61,6 +61,7 @@ public class StoryShareController : ControllerBase
         [FromQuery] CardTheme? theme,
         [FromQuery] string? comment,
         [FromQuery] string? background,
+        [FromQuery] CardAnimation? animation,
         [FromQuery] string? format,
         [FromQuery] bool download,
         CancellationToken cancellationToken)
@@ -71,7 +72,7 @@ public class StoryShareController : ControllerBase
             return NotFound();
         }
 
-        return await RenderResult(item, theme, comment, background, format, download, cancellationToken)
+        return await RenderResult(item, theme, comment, background, animation, format, download, cancellationToken)
             .ConfigureAwait(false);
     }
 
@@ -105,10 +106,19 @@ public class StoryShareController : ControllerBase
                     IsLight = b.IsLight
                 })
                 .ToList(),
+            Animations = CardAnimations.All
+                .Select(a => new AnimationOption
+                {
+                    Value = (int)a.Animation,
+                    Label = a.Label,
+                    Description = a.Description
+                })
+                .ToList(),
             DefaultTheme = (int)config.Theme,
             DefaultBackground = string.IsNullOrWhiteSpace(config.Background)
                 ? BackgroundPresets.Auto
-                : config.Background
+                : config.Background,
+            DefaultAnimation = (int)config.Animation
         };
     }
 
@@ -149,6 +159,7 @@ public class StoryShareController : ControllerBase
         [FromQuery] CardTheme? theme,
         [FromQuery] string? comment,
         [FromQuery] string? background,
+        [FromQuery] CardAnimation? animation,
         [FromQuery] string? format)
     {
         var item = _libraryManager.GetItemById(itemId);
@@ -159,7 +170,7 @@ public class StoryShareController : ControllerBase
 
         var config = Config;
         var lifetime = TimeSpan.FromMinutes(Math.Clamp(config.ShareLinkLifetimeMinutes, 5, 60 * 24 * 7));
-        var token = _tokens.Create(itemId, theme, comment, background, lifetime);
+        var token = _tokens.Create(itemId, theme, comment, background, animation, lifetime);
 
         var baseUrl = ResolveBaseUrl(config);
         // The extension is what the anonymous endpoint reads the format back out of.
@@ -209,8 +220,15 @@ public class StoryShareController : ControllerBase
             return NotFound();
         }
 
-        return await RenderResult(item, share.Theme, share.Comment, share.Background, format, download, cancellationToken)
-            .ConfigureAwait(false);
+        return await RenderResult(
+            item,
+            share.Theme,
+            share.Comment,
+            share.Background,
+            share.Animation,
+            format,
+            download,
+            cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>Serves the web UI integration script referenced from index.html.</summary>
@@ -233,6 +251,7 @@ public class StoryShareController : ControllerBase
         CardTheme? theme,
         string? comment,
         string? background,
+        CardAnimation? animation,
         string? format,
         bool asAttachment,
         CancellationToken cancellationToken)
@@ -245,11 +264,17 @@ public class StoryShareController : ControllerBase
 
         try
         {
-            var options = new StoryCardOptions { Theme = theme, Comment = comment, Background = background };
+            var options = new StoryCardOptions
+            {
+                Theme = theme,
+                Comment = comment,
+                Background = background,
+                Animation = animation
+            };
 
             // The dialog previews a card and then the opened link asks for exactly
             // the same one, so this is a hit on the request that matters most.
-            var key = _cache.Key(item, theme, comment, background, extension);
+            var key = _cache.Key(item, theme, comment, background, animation, extension);
             if (!_cache.TryGet(key, out var bytes))
             {
                 bytes = wantsVideo

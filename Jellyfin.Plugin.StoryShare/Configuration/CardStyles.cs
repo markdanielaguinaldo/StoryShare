@@ -18,6 +18,19 @@ public readonly record struct CardBackground(SKColor Top, SKColor Mid, SKColor B
 /// <summary>Description of one card style, for the settings page and the share dialog.</summary>
 public sealed record CardThemeInfo(CardTheme Theme, string Label, string Description);
 
+/// <summary>Description of one animation, for the settings page and the share dialog.</summary>
+public sealed record CardAnimationInfo(CardAnimation Animation, string Label, string Description);
+
+public static class CardAnimations
+{
+    public static IReadOnlyList<CardAnimationInfo> All { get; } = new CardAnimationInfo[]
+    {
+        new(CardAnimation.Auto, "Auto", "The style's own movement — a slow push in, or a turning record."),
+        new(CardAnimation.Float, "Float", "The whole card drifts through a slow figure of eight."),
+        new(CardAnimation.Pulse, "Pulse", "Two beats a loop, with an accent glow behind the artwork.")
+    };
+}
+
 public static class CardThemes
 {
     public static IReadOnlyList<CardThemeInfo> All { get; } = new CardThemeInfo[]

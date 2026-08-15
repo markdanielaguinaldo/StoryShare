@@ -67,6 +67,11 @@ await Save("longtitle-stack", longTitle, new StoryCardOptions { Theme = CardThem
 await Save("longtitle-polaroid", longTitle, new StoryCardOptions { Theme = CardTheme.Polaroid, Comment = "a very long comment that has to wrap onto more than one line to be worth testing at all" });
 await Save("longtitle-ticket", longTitle, new StoryCardOptions { Theme = CardTheme.Ticket });
 await Save("music-cassette", track, new StoryCardOptions { Theme = CardTheme.Cassette });
+// Both directions of the cover fitting, which only kicks in when the artwork and
+// the window it goes in are too different in shape to crop between: a 2:3 poster
+// in a cassette's wide label, and a square cover in a ticket's landscape band.
+await Save("cassette-poster", movie, new StoryCardOptions { Theme = CardTheme.Cassette });
+await Save("ticket-cover", track, new StoryCardOptions { Theme = CardTheme.Ticket });
 await Save("ticket-comment", movie, new StoryCardOptions { Theme = CardTheme.Ticket, Comment = "best thing I have seen all year" });
 
 // Review's caption is the review body, so it is the case worth looking at — and
@@ -141,6 +146,19 @@ double MeanDiff(int a, int b)
     return total / (double)frameSize;
 }
 
+// Numbers catch a loop that does not close; only a picture catches a card that
+// moves in an ugly way, so the interesting frames get written out too.
+void SaveFrame(string name, int index)
+{
+    var info = new SKImageInfo(spec.Width, spec.Height, SKColorType.Rgba8888, SKAlphaType.Premul);
+    using var bitmap = new SKBitmap(info);
+    System.Runtime.InteropServices.Marshal.Copy(buffer, index * frameSize, bitmap.GetPixels(), frameSize);
+
+    using var image = SKImage.FromBitmap(bitmap);
+    using var data = image.Encode(SKEncodedImageFormat.Png, 100);
+    File.WriteAllBytes(Path.Combine(outDir, name + ".png"), data.ToArray());
+}
+
 var motion = MeanDiff(0, spec.FrameCount / 2);
 var seam = MeanDiff(0, spec.FrameCount - 1);
 Console.WriteLine($"mid-loop motion (want > 1)         : {motion:F2}");
@@ -190,6 +208,53 @@ Console.WriteLine($"cassette per-frame step            : {tapeStep:F2}");
 Console.WriteLine($"cassette seam step (want <= a step) : {tapeSeam:F2}");
 Console.WriteLine($"cassette hubs actually turn        : {tapeHalf > tapeStep * 3}");
 Console.WriteLine($"cassette loop closes cleanly       : {tapeSeam < tapeStep * 1.5}");
+
+// The chosen animations replace the push-in with movement of their own, and each
+// one still has to meet itself at the seam. Measured the way Vinyl and Cassette
+// are: the last frame is one step short of home by construction, so what has to
+// hold is that the seam is no bigger than an ordinary step.
+foreach (var animation in new[] { CardAnimation.Float, CardAnimation.Pulse })
+{
+    var moveSpec = Jellyfin.Plugin.StoryShare.Models.AnimationSpec.Video;
+    var moveRaw = new MemoryStream();
+    await renderer.RenderFramesAsync(
+        movie,
+        new StoryCardOptions { Theme = CardTheme.Ticket, Animation = animation },
+        moveSpec,
+        moveRaw,
+        CancellationToken.None);
+    buffer = moveRaw.ToArray();
+
+    var moveStep = MeanDiff(0, 1);
+    var moveSeam = MeanDiff(0, moveSpec.FrameCount - 1);
+    // The furthest point from the start, not the half-way frame: Pulse beats twice
+    // per loop, so its mid-frame is back at the start and measuring there would
+    // report a card that never moves.
+    var moveFar = Math.Max(
+        MeanDiff(0, moveSpec.FrameCount / 4),
+        Math.Max(MeanDiff(0, moveSpec.FrameCount / 2), MeanDiff(0, moveSpec.FrameCount * 3 / 4)));
+
+    // A quarter in is the top of Pulse's beat and the far side of Float's swing.
+    SaveFrame($"animation-{animation}", moveSpec.FrameCount / 4);
+
+    Console.WriteLine($"{animation,-6} furthest frame (want > 1)  : {moveFar:F2}");
+    Console.WriteLine($"{animation,-6} per-frame step             : {moveStep:F2}");
+    Console.WriteLine($"{animation,-6} seam step (want <= a step) : {moveSeam:F2}");
+    Console.WriteLine($"{animation,-6} loop closes cleanly        : {moveFar > 1 && moveSeam <= moveStep * 1.5}");
+}
+
+// A still is the scene at phase 0 whatever the animation, so the picture must not
+// change with it — otherwise the dialog would show one card and share another.
+var stillAuto = await renderer.RenderAsync(movie, new StoryCardOptions { Theme = CardTheme.Ticket }, SKEncodedImageFormat.Png, CancellationToken.None);
+foreach (var animation in new[] { CardAnimation.Float, CardAnimation.Pulse })
+{
+    var still = await renderer.RenderAsync(
+        movie,
+        new StoryCardOptions { Theme = CardTheme.Ticket, Animation = animation },
+        SKEncodedImageFormat.Png,
+        CancellationToken.None);
+    Console.WriteLine($"{animation,-6} leaves the still alone     : {stillAuto.AsSpan().SequenceEqual(still)}");
+}
 
 Console.WriteLine("Output: " + outDir);
 

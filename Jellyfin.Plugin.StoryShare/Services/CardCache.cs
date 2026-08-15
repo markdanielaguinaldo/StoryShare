@@ -167,6 +167,7 @@ public sealed class CardCache
         CardTheme? theme,
         string? comment,
         string? background,
+        CardAnimation? animation,
         string format)
     {
         var config = Config;
@@ -177,9 +178,11 @@ public sealed class CardCache
             .Append('|').Append(item.DateLastSaved.Ticks.ToString(CultureInfo.InvariantCulture))
             .Append('|').Append(theme?.ToString() ?? "default")
             .Append('|').Append(background ?? string.Empty)
+            .Append('|').Append(animation?.ToString() ?? "default")
             .Append('|').Append(format)
             .Append('|').Append(comment ?? string.Empty)
             .Append('|').Append(config.Theme)
+            .Append('|').Append(config.Animation)
             .Append('|').Append(config.FooterText)
             .Append('|').Append(_server.Name)
             .Append('|').Append(config.AccentColor)

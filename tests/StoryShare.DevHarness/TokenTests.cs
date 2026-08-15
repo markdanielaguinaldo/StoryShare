@@ -1,3 +1,6 @@
+using System.Globalization;
+using System.Security.Cryptography;
+using System.Text;
 using Jellyfin.Plugin.StoryShare;
 using Jellyfin.Plugin.StoryShare.Configuration;
 using Jellyfin.Plugin.StoryShare.Services;
@@ -20,23 +23,53 @@ internal static class TokenTests
         var itemId = Guid.NewGuid();
         var failures = 0;
 
-        var valid = tokens.Create(itemId, CardTheme.FullBleed, "hello world", "midnight", TimeSpan.FromMinutes(30));
+        var valid = tokens.Create(
+            itemId,
+            CardTheme.FullBleed,
+            "hello world",
+            "midnight",
+            CardAnimation.Pulse,
+            TimeSpan.FromMinutes(30));
         failures += Check(
             "round-trips a valid token",
             tokens.TryValidate(valid, out var parsed)
             && parsed!.ItemId == itemId
             && parsed.Theme == CardTheme.FullBleed
             && parsed.Comment == "hello world"
-            && parsed.Background == "midnight");
+            && parsed.Background == "midnight"
+            && parsed.Animation == CardAnimation.Pulse);
 
         // A background that is a raw colour has to survive the round trip too.
-        var hexBackground = tokens.Create(itemId, CardTheme.Vinyl, null, "#2E1A47", TimeSpan.FromMinutes(30));
+        var hexBackground = tokens.Create(
+            itemId,
+            CardTheme.Vinyl,
+            null,
+            "#2E1A47",
+            null,
+            TimeSpan.FromMinutes(30));
         failures += Check(
             "round-trips a hex background",
             tokens.TryValidate(hexBackground, out var hexParsed)
             && hexParsed!.Background == "#2E1A47"
             && hexParsed.Theme == CardTheme.Vinyl
             && hexParsed.Comment is null);
+
+        // An unset animation has to come back unset, not as Auto: the render falls
+        // back to the configured default, which may well not be Auto.
+        failures += Check(
+            "an omitted animation stays omitted",
+            tokens.TryValidate(hexBackground, out var noAnimation) && noAnimation!.Animation is null);
+
+        // Links minted before the animation field existed carry five fields, and
+        // they have to keep working until they expire.
+        var legacy = LegacyToken(itemId, CardTheme.Stack, "older link", "ember");
+        failures += Check(
+            "still reads a link minted before animations",
+            tokens.TryValidate(legacy, out var legacyParsed)
+            && legacyParsed!.Theme == CardTheme.Stack
+            && legacyParsed.Comment == "older link"
+            && legacyParsed.Background == "ember"
+            && legacyParsed.Animation is null);
 
         failures += Check("token is URL-safe", !valid.Contains('+') && !valid.Contains('/') && !valid.Contains('='));
 
@@ -49,7 +82,7 @@ internal static class TokenTests
         failures += Check("rejects a tampered signature", !tokens.TryValidate(Flip(valid, dot + 2), out _));
 
         // Re-sign with a different key: the old token must stop validating.
-        var expired = tokens.Create(itemId, null, null, null, TimeSpan.FromSeconds(-30));
+        var expired = tokens.Create(itemId, null, null, null, null, TimeSpan.FromSeconds(-30));
         failures += Check("rejects an expired token", !tokens.TryValidate(expired, out _));
 
         Plugin.Instance!.Configuration.SigningKey =
@@ -70,6 +103,30 @@ internal static class TokenTests
 
         return failures;
     }
+
+    /// <summary>
+    /// A token in the five-field shape this plugin minted before the animation was
+    /// part of one, signed with the live key — the only way to prove an outstanding
+    /// link still opens after this change.
+    /// </summary>
+    private static string LegacyToken(Guid itemId, CardTheme theme, string comment, string background)
+    {
+        var expires = DateTimeOffset.UtcNow.AddMinutes(30).ToUnixTimeSeconds();
+        var payload = string.Join(
+            '|',
+            itemId.ToString("N"),
+            ((int)theme).ToString(CultureInfo.InvariantCulture),
+            Encode(Encoding.UTF8.GetBytes(comment)),
+            expires.ToString(CultureInfo.InvariantCulture),
+            Encode(Encoding.UTF8.GetBytes(background)));
+
+        var bytes = Encoding.UTF8.GetBytes(payload);
+        using var hmac = new HMACSHA256(Convert.FromBase64String(Plugin.Instance!.Configuration.SigningKey));
+        return Encode(bytes) + "." + Encode(hmac.ComputeHash(bytes));
+    }
+
+    private static string Encode(byte[] value) =>
+        Convert.ToBase64String(value).TrimEnd('=').Replace('+', '-').Replace('/', '_');
 
     private static string Flip(string token, int index)
     {

@@ -29,6 +29,19 @@
                 </div>
 
                 <div class="selectContainer">
+                    <label class="selectLabel" for="Animation">Default animation</label>
+                    <select is="emby-select" id="Animation" name="Animation" class="emby-select-withcolor emby-select">
+                        <option value="Auto">Auto — the style's own movement</option>
+                        <option value="Float">Float — the card drifts through a figure of eight</option>
+                        <option value="Pulse">Pulse — two beats a loop, with a glow behind the artwork</option>
+                    </select>
+                    <div class="fieldDescription">
+                        Only the video moves, so this has no effect on a still card. The Story dialog offers it
+                        as soon as the format is set to video, preselected to whatever is chosen here.
+                    </div>
+                </div>
+
+                <div class="selectContainer">
                     <label class="selectLabel" for="Background">Background</label>
                     <select is="emby-select" id="Background" name="Background" class="emby-select-withcolor emby-select">
                         <option value="auto">Match the artwork</option>
@@ -171,11 +184,23 @@
             var THEME_NAMES = ['Poster', 'FullBleed', 'Minimal', 'Polaroid', 'Vinyl', 'Stack',
                 'Ticket', 'Cassette', 'Review'];
 
+            var ANIMATION_NAMES = ['Auto', 'Float', 'Pulse'];
+
             function themeName(value) {
                 if (typeof value === 'number') {
                     return THEME_NAMES[value] || THEME_NAMES[0];
                 }
                 return THEME_NAMES.indexOf(value) >= 0 ? value : THEME_NAMES[0];
+            }
+
+            // Same shape as themeName, and for the same reason: the config API
+            // serialises the enum by name, but a config saved by an older build —
+            // or by anything posting numbers — still has to land on a valid option.
+            function animationName(value) {
+                if (typeof value === 'number') {
+                    return ANIMATION_NAMES[value] || ANIMATION_NAMES[0];
+                }
+                return ANIMATION_NAMES.indexOf(value) >= 0 ? value : ANIMATION_NAMES[0];
             }
 
             // The palette lives in the plugin, so fetch it rather than keeping a
@@ -223,6 +248,7 @@
                     var config = results[0];
 
                     page.querySelector('#Theme').value = themeName(config.Theme);
+                    page.querySelector('#Animation').value = animationName(config.Animation);
                     page.querySelector('#Background').value = config.Background || 'auto';
                     page.querySelector('#ShareLinkLifetimeMinutes').value = config.ShareLinkLifetimeMinutes;
                     // Falls back rather than using ||, so a saved 0 is not silently rewritten.
@@ -251,6 +277,7 @@
 
                 ApiClient.getPluginConfiguration(pluginId).then(function (config) {
                     config.Theme = themeName(page.querySelector('#Theme').value);
+                    config.Animation = animationName(page.querySelector('#Animation').value);
                     config.Background = page.querySelector('#Background').value || 'auto';
                     config.ShareLinkLifetimeMinutes =
                         parseInt(page.querySelector('#ShareLinkLifetimeMinutes').value, 10) || 60;

@@ -145,7 +145,7 @@ public class StoryCardRenderer
         var footerText = _server.Expand(options.FooterText ?? config.FooterText);
         var context = new LayoutContext(item, options, config, palette, art, backdrop, footerText, bold, regular);
 
-        return theme switch
+        var scene = theme switch
         {
             CardTheme.Polaroid => BuildPolaroid(context),
             CardTheme.Vinyl => BuildVinyl(context),
@@ -155,6 +155,11 @@ public class StoryCardRenderer
             CardTheme.Review => BuildReview(context),
             _ => BuildClassic(theme, context)
         };
+
+        // One place rather than a line in every Build*, so a style added later gets
+        // the cover fitting and the animation choice without having to know about them.
+        scene.Prepare(options.Animation ?? config.Animation);
+        return scene;
     }
 
     /// <summary>Everything the per-theme layout methods need, so they take one argument.</summary>
@@ -910,27 +915,49 @@ public class StoryCardRenderer
     /// Decorative bars. Seeded from a stable hash rather than <c>string.GetHashCode</c>,
     /// which is randomised per process — the same card has to come out identical on
     /// every render, or a cached copy and a fresh one would not match.
+    ///
+    /// Laid out first and drawn second, so the run can be centred under the printing
+    /// above it: bars are whatever width the seed says, so the last one almost never
+    /// lands on the right-hand edge, and filling from the left left the whole code
+    /// sitting off-centre.
     /// </summary>
     private static void DrawBarcode(SKCanvas canvas, SKRect area, SKColor color, uint seed)
     {
-        using var paint = new SKPaint { Color = color, IsAntialias = true };
-
+        var bars = new List<(float Width, float Gap)>();
         var state = seed | 1u;
-        var x = area.Left;
+        var used = 0f;
 
-        while (x < area.Right)
+        while (true)
         {
             state = (state * 1664525u) + 1013904223u;
             var width = 3f + ((state >> 16) % 5);
             var gap = 3f + ((state >> 8) % 4);
 
-            var drawn = Math.Min(width, area.Right - x);
-            if (drawn > 0f)
+            if (used + width > area.Width)
             {
-                canvas.DrawRect(SKRect.Create(x, area.Top, drawn, area.Height), paint);
+                break;
             }
 
-            x += width + gap;
+            bars.Add((width, gap));
+            used += width + gap;
+        }
+
+        if (bars.Count == 0)
+        {
+            return;
+        }
+
+        // The trailing gap is not part of the code, so it is not part of the width
+        // being centred either.
+        used -= bars[^1].Gap;
+
+        using var paint = new SKPaint { Color = color, IsAntialias = true };
+        var x = area.MidX - (used / 2f);
+
+        foreach (var bar in bars)
+        {
+            canvas.DrawRect(SKRect.Create(x, area.Top, bar.Width, area.Height), paint);
+            x += bar.Width + bar.Gap;
         }
     }
 
@@ -969,18 +996,28 @@ public class StoryCardRenderer
 
         var bodyRect = SKRect.Create(Card.CenterX - (BodyWidth / 2f), top, BodyWidth, bodyHeight);
 
-        // The label sticker across the top, and the tape window below it.
+        // The label sticker and the tape window below it, centred in the shell as a
+        // pair. Hanging them off the top edge left more empty plastic below the
+        // window than above the label, which read as a shell put together crooked.
+        const float LabelHeightFraction = 0.48f;
+        const float WindowHeightFraction = 0.32f;
+        const float InnerGap = 24f;
+
+        var labelHeight = bodyHeight * LabelHeightFraction;
+        var windowHeight = bodyHeight * WindowHeightFraction;
+        var innerTop = bodyRect.Top + ((bodyHeight - (labelHeight + InnerGap + windowHeight)) / 2f);
+
         var labelRect = SKRect.Create(
             bodyRect.Left + 38f,
-            bodyRect.Top + 32f,
+            innerTop,
             BodyWidth - 76f,
-            bodyHeight * 0.48f);
+            labelHeight);
 
         var windowRect = SKRect.Create(
             bodyRect.Left + 122f,
-            labelRect.Bottom + 24f,
+            labelRect.Bottom + InnerGap,
             BodyWidth - 244f,
-            bodyHeight * 0.32f);
+            windowHeight);
 
         var hubRadius = windowRect.Height * 0.28f;
         var leftHub = new SKPoint(windowRect.Left + (windowRect.Width * 0.23f), windowRect.MidY);
@@ -1087,8 +1124,8 @@ public class StoryCardRenderer
 
         using (var tape = new SKPaint { IsAntialias = true, Color = new SKColor(0x3A, 0x2A, 0x22) })
         {
-            canvas.DrawCircle(leftHub, hubRadius * 2.2f, tape);
-            canvas.DrawCircle(rightHub, hubRadius * 2.2f, tape);
+            canvas.DrawCircle(leftHub, hubRadius * 1.9f, tape);
+            canvas.DrawCircle(rightHub, hubRadius * 1.9f, tape);
         }
 
         canvas.Restore();

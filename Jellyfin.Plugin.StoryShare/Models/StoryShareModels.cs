@@ -38,6 +38,9 @@ public class StoryCardOptions
 {
     public CardTheme? Theme { get; set; }
 
+    /// <summary>How the video moves. Ignored by a still, which is always phase 0.</summary>
+    public CardAnimation? Animation { get; set; }
+
     public string? FooterText { get; set; }
 
     /// <summary>Free-text caption drawn under the title, e.g. "10/10 no notes".</summary>
@@ -62,11 +65,26 @@ public class StyleOptionsResponse
 
     public IReadOnlyList<BackgroundOption> Backgrounds { get; set; } = Array.Empty<BackgroundOption>();
 
+    /// <summary>Movements the video can be given. Empty is not expected; the dialog falls back.</summary>
+    public IReadOnlyList<AnimationOption> Animations { get; set; } = Array.Empty<AnimationOption>();
+
     /// <summary>The theme the server falls back to, so the dialog can preselect it.</summary>
     public int DefaultTheme { get; set; }
 
     /// <summary>The background id the server falls back to.</summary>
     public string DefaultBackground { get; set; } = BackgroundPresets.Auto;
+
+    /// <summary>The animation the server falls back to.</summary>
+    public int DefaultAnimation { get; set; }
+}
+
+public class AnimationOption
+{
+    public int Value { get; set; }
+
+    public string Label { get; set; } = string.Empty;
+
+    public string Description { get; set; } = string.Empty;
 }
 
 public class ThemeOption

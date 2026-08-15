@@ -62,4 +62,59 @@ internal static class Card
         var y = (bitmap.Height - h) / 2f;
         return SKRect.Create(0, y, bitmap.Width, h);
     }
+
+    /// <summary>
+    /// How far <paramref name="bitmap"/> and <paramref name="dest"/> are from
+    /// being the same shape, as a factor of one — 1 means identical, 2 means one
+    /// is twice as wide relative to its height as the other.
+    /// </summary>
+    public static float AspectMismatch(SKBitmap bitmap, SKRect dest)
+    {
+        if (dest.Height <= 0f || bitmap.Height <= 0)
+        {
+            return 1f;
+        }
+
+        var ratio = (bitmap.Width / (float)bitmap.Height) / (dest.Width / dest.Height);
+        return ratio < 1f ? 1f / ratio : ratio;
+    }
+
+    /// <summary>
+    /// Past this much shape difference, cropping the cover to fill the window
+    /// throws away most of the picture — a 2:3 poster in a ticket's landscape band
+    /// keeps a middle slice with no title and no faces. Anything above this is
+    /// fitted whole into the window instead.
+    /// </summary>
+    public const float FitThreshold = 1.25f;
+
+    /// <summary>
+    /// The largest centred rect inside <paramref name="dest"/> with the bitmap's own
+    /// aspect, shrunk by <paramref name="margin"/> so a push-in has somewhere to go
+    /// without the picture ever being clipped.
+    /// </summary>
+    public static SKRect ContainRect(SKBitmap bitmap, SKRect dest, float margin = 1f)
+    {
+        var srcAspect = bitmap.Width / (float)bitmap.Height;
+
+        var width = dest.Width;
+        var height = width / srcAspect;
+        if (height > dest.Height)
+        {
+            height = dest.Height;
+            width = height * srcAspect;
+        }
+
+        width *= margin;
+        height *= margin;
+
+        return SKRect.Create(dest.MidX - (width / 2f), dest.MidY - (height / 2f), width, height);
+    }
+
+    /// <summary>Grows or shrinks a rect about its own centre.</summary>
+    public static SKRect ScaleAbout(SKRect rect, float factor)
+    {
+        var width = rect.Width * factor;
+        var height = rect.Height * factor;
+        return SKRect.Create(rect.MidX - (width / 2f), rect.MidY - (height / 2f), width, height);
+    }
 }

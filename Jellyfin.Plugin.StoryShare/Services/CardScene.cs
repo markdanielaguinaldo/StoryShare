@@ -13,6 +13,9 @@ namespace Jellyfin.Plugin.StoryShare.Services;
 /// spins, on Vinyl) and a light sweep crosses it. Everything else is baked flat
 /// into <see cref="DecorLayer"/> (drawn under the artwork) and
 /// <see cref="TextLayer"/> (drawn over it).
+///
+/// <see cref="Animation"/> chooses how the card moves; every one of them has to be
+/// back where it started at phase 1, or the video jumps at the loop point.
 /// </summary>
 internal sealed class CardScene : IDisposable
 {
@@ -61,6 +64,22 @@ internal sealed class CardScene : IDisposable
 
     public SKRect ArtRect { get; init; }
 
+    /// <summary>
+    /// Blurred bed painted across <see cref="ArtRect"/> when the cover is too
+    /// different in shape to crop into it — see <see cref="ArtInner"/>. Null means
+    /// the cover fills the window on its own and is cropped to fit, as before.
+    /// </summary>
+    public SKImage? ArtFill { get; private set; }
+
+    /// <summary>
+    /// Where the whole cover is drawn inside <see cref="ArtRect"/> when
+    /// <see cref="ArtFill"/> is set: the largest centred box with the artwork's own
+    /// aspect. A ticket's band and a cassette's label are wide slots, and a 2:3
+    /// poster cropped into one keeps a middle strip with neither the title nor the
+    /// faces in it, which is what made those styles look mis-set.
+    /// </summary>
+    public SKRect ArtInner { get; private set; }
+
     public float ArtCorner { get; init; } = 28f;
 
     /// <summary>Corner radius equal to half the side turns the clip into a circle.</summary>
@@ -71,10 +90,72 @@ internal sealed class CardScene : IDisposable
     /// <summary>Rotate the artwork a full turn per loop, rather than pushing in.</summary>
     public bool Spin { get; init; }
 
+    /// <summary>How the card moves in the video. Stills are always drawn at phase 0.</summary>
+    public CardAnimation Animation { get; private set; } = CardAnimation.Auto;
+
     /// <summary>Degrees the decor layer and artwork are rotated by together.</summary>
     public float Tilt { get; init; }
 
     public SKPoint TiltPivot { get; init; }
+
+    /// <summary>
+    /// Second pass over a freshly built scene, so every style gets this without a
+    /// line of its own: settles how the card moves, and decides whether the cover
+    /// can be cropped into its window or has to be set whole inside it.
+    ///
+    /// Spinning styles are left alone — Vinyl's window is a circle, and a cover
+    /// fitted inside one would be a rectangle turning behind a round hole.
+    /// </summary>
+    public void Prepare(CardAnimation animation)
+    {
+        Animation = animation;
+
+        if (Art is null
+            || ArtRect.IsEmpty
+            || Spin
+            || Card.AspectMismatch(Art, ArtRect) <= Card.FitThreshold)
+        {
+            return;
+        }
+
+        // The margin is what the push-in grows into, so the cover is never clipped
+        // by its own animation.
+        ArtInner = Card.ContainRect(Art, ArtRect, 0.94f);
+        ArtFill = BuildArtFill(Art, ArtRect);
+    }
+
+    /// <summary>
+    /// The blurred bed behind a fitted cover: the same artwork, cropped to fill the
+    /// window and pushed back so the sharp copy in front of it reads as the subject.
+    /// Baked, because the blur is far too expensive to repeat per frame.
+    /// </summary>
+    private static SKImage BuildArtFill(SKBitmap art, SKRect window)
+    {
+        var width = Math.Max(1, (int)MathF.Ceiling(window.Width));
+        var height = Math.Max(1, (int)MathF.Ceiling(window.Height));
+
+        using var surface = SKSurface.Create(
+            new SKImageInfo(width, height, SKColorType.Rgba8888, SKAlphaType.Premul));
+        var canvas = surface.Canvas;
+        canvas.Clear(new SKColor(0x14, 0x15, 0x18));
+
+        var dest = new SKRect(0, 0, width, height);
+        using (var image = SKImage.FromBitmap(art))
+        using (var paint = new SKPaint
+        {
+            ImageFilter = SKImageFilter.CreateBlur(34f, 34f, SKShaderTileMode.Clamp)
+        })
+        {
+            canvas.DrawImage(image, Card.CoverSourceRect(art, dest), dest, Card.Sampling, paint);
+        }
+
+        using (var scrim = new SKPaint { Color = new SKColor(0, 0, 0, 110) })
+        {
+            canvas.DrawRect(dest, scrim);
+        }
+
+        return surface.Snapshot();
+    }
 
     public void Draw(SKCanvas canvas, float phase)
     {
@@ -82,14 +163,40 @@ internal sealed class CardScene : IDisposable
         // exactly where the first began and the video cycles without a jump.
         var swell = (1f - MathF.Cos(2f * MathF.PI * phase)) / 2f;
 
+        // Pulse beats twice per loop. Still a whole number of cycles, so it also
+        // meets itself at the seam.
+        var beat = (1f - MathF.Cos(4f * MathF.PI * phase)) / 2f;
+        var artSwell = Animation == CardAnimation.Pulse ? beat : swell;
+
         canvas.Clear(SKColors.Black);
         DrawBackground(canvas, phase);
+
+        // Float slides the whole object — paper, ticket, shell and the cover inside
+        // it — rather than the artwork alone, which would slide a photo out of the
+        // frame that is meant to be holding it. Whole pixels only: a fractional
+        // translation resamples every baked layer, and Ticket and Cassette are baked
+        // precisely because their straight edges land on whole pixels.
+        var drift = Drift(phase);
+        var floating = drift != SKPoint.Empty;
+        if (floating)
+        {
+            canvas.Save();
+            canvas.Translate(drift.X, drift.Y);
+        }
 
         var tilted = MathF.Abs(Tilt) > 0.01f;
         if (tilted)
         {
             canvas.Save();
             canvas.RotateDegrees(Tilt, TiltPivot.X, TiltPivot.Y);
+        }
+
+        // Behind everything the card is made of, not just behind the artwork: the
+        // ticket and the polaroid are opaque stock, and a glow drawn on top of one
+        // washes the whole card pale instead of lighting it from behind.
+        if (!ArtRect.IsEmpty && Animation == CardAnimation.Pulse)
+        {
+            DrawPulseGlow(canvas, beat);
         }
 
         // Linear rather than the default nearest sampling: under the tilt these
@@ -103,7 +210,7 @@ internal sealed class CardScene : IDisposable
 
         if (!ArtRect.IsEmpty && Art is not null)
         {
-            DrawArtPanel(canvas, swell, phase);
+            DrawArtPanel(canvas, artSwell, phase);
         }
 
         DrawOverArt?.Invoke(canvas, phase);
@@ -118,7 +225,64 @@ internal sealed class CardScene : IDisposable
             canvas.Restore();
         }
 
+        if (floating)
+        {
+            canvas.Restore();
+        }
+
         canvas.DrawImage(TextLayer, 0, 0, Card.FrameSampling);
+    }
+
+    /// <summary>
+    /// Float's path: a figure of eight, one cycle across and two up and down. Both
+    /// terms are sines of a whole number of turns, so the offset is exactly zero at
+    /// phase 0 and again at phase 1.
+    /// </summary>
+    private SKPoint Drift(float phase)
+    {
+        if (Animation != CardAnimation.Float)
+        {
+            return SKPoint.Empty;
+        }
+
+        var angle = 2f * MathF.PI * phase;
+        return new SKPoint(
+            MathF.Round(18f * MathF.Sin(angle)),
+            MathF.Round(12f * MathF.Sin(2f * angle)));
+    }
+
+    /// <summary>
+    /// A breath of accent light behind the panel, in time with the beat. It fades to
+    /// nothing at the bottom of the beat, which is also phase 0 — so a still card
+    /// looks the same whichever animation is selected, and the dialog cannot preview
+    /// one picture and share another.
+    /// </summary>
+    private void DrawPulseGlow(SKCanvas canvas, float beat)
+    {
+        if (beat <= 0.002f)
+        {
+            return;
+        }
+
+        var center = new SKPoint(ArtRect.MidX, ArtRect.MidY);
+        // Wider than the artwork on purpose: on the styles that print the cover on
+        // opaque stock, the only part of this that is ever seen is the part that
+        // reaches past the card's own edges.
+        var radius = MathF.Max(ArtRect.Width, ArtRect.Height) * (1.05f + (0.12f * beat));
+        var alpha = (byte)(150 * beat);
+
+        using var glow = new SKPaint
+        {
+            IsAntialias = true,
+            Shader = SKShader.CreateRadialGradient(
+                center,
+                radius,
+                new[] { Palette.Accent.WithAlpha(alpha), Palette.Accent.WithAlpha(0) },
+                new[] { 0.35f, 1f },
+                SKShaderTileMode.Clamp)
+        };
+
+        canvas.DrawCircle(center, radius, glow);
     }
 
     public void Dispose()
@@ -128,6 +292,7 @@ internal sealed class CardScene : IDisposable
         DecorLayer?.Dispose();
         TiltedOverlay?.Dispose();
         ArtImage?.Dispose();
+        ArtFill?.Dispose();
         ShadowLayer?.Dispose();
         Art?.Dispose();
         Backdrop?.Dispose();
@@ -248,6 +413,29 @@ internal sealed class CardScene : IDisposable
                 canvas.RotateDegrees(360f * phase, ArtRect.MidX, ArtRect.MidY);
                 canvas.DrawImage(ArtImage, cover, ArtRect, Card.FrameSampling, null);
                 canvas.Restore();
+            }
+            else if (ArtFill is not null)
+            {
+                // The window is filled by a blurred copy of the cover and the cover
+                // itself is set whole inside it. The bed pushes in and the cover
+                // grows into the margin left for it, so the picture is never clipped.
+                var bed = new SKRect(0, 0, ArtFill.Width, ArtFill.Height);
+                canvas.DrawImage(ArtFill, Card.Inset(bed, 1f + (0.06f * swell)), ArtRect, Card.FrameSampling, null);
+
+                var inner = Card.ScaleAbout(ArtInner, 1f + (0.04f * swell));
+                var whole = new SKRect(0, 0, Art!.Width, Art.Height);
+                canvas.DrawImage(ArtImage, whole, inner, Card.FrameSampling, null);
+
+                // A hairline, because a cover set on a blurred copy of itself has no
+                // edge of its own where the two are the same colour.
+                using var edge = new SKPaint
+                {
+                    Style = SKPaintStyle.Stroke,
+                    StrokeWidth = 2f,
+                    IsAntialias = true,
+                    Color = new SKColor(0, 0, 0, 90)
+                };
+                canvas.DrawRect(inner, edge);
             }
             else
             {
