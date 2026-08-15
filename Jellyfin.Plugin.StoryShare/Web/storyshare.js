@@ -194,7 +194,8 @@
             'font:inherit;font-size:.84em;cursor:pointer;text-align:left;line-height:1.4;}',
             '.storyshare-suggest:hover{text-decoration:underline;}',
             '.storyshare-note{font-size:.85em;line-height:1.5;opacity:.75;margin:0;}',
-            '.storyshare-controls [data-role="animationnote"]{margin-top:6px;}',
+            '.storyshare-controls [data-role="animationnote"],',
+            '.storyshare-controls [data-role="themenote"]{margin-top:6px;}',
             '.storyshare-controls [hidden]{display:none;}',
             '.storyshare-status{font-size:.88em;min-height:1.2em;}',
             '.storyshare-status.error{color:#ff8080;}'
@@ -230,6 +231,10 @@
             '    <div>',
             '      <label for="storyshare-theme">Style</label>',
             '      <select id="storyshare-theme" data-role="theme"></select>',
+            // Full bleed is the only style that prints a logo, and the corner falls
+            // back to type when none is set. Said here rather than left to be
+            // discovered, because the card looks finished either way.
+            '      <p class="storyshare-note" data-role="themenote" hidden></p>',
             '    </div>',
             '    <div>',
             '      <label id="storyshare-bg-label">Background</label>',
@@ -355,6 +360,23 @@
 
         function syncAnimationRow() {
             el('animationrow').hidden = !isVideo();
+        }
+
+        // Full bleed prints a logo in its top corner and sets "Shared with / Story
+        // Share" as type when there is none. Matched on the value rather than the
+        // label, which is only ever a display string.
+        var FULL_BLEED = 1;
+
+        function syncThemeNote() {
+            var note = el('themenote');
+            var isFullBleed = String(el('theme').value) === String(FULL_BLEED);
+
+            note.hidden = !isFullBleed;
+            note.textContent = isFullBleed
+                ? 'The top corner reads "Shared with Story Share" until a logo is set. '
+                    + 'To print your own instead, put its full path in Brand logo under '
+                    + 'Dashboard → Plugins → Story Share.'
+                : '';
         }
 
         function describeAnimation(list) {
@@ -506,7 +528,10 @@
         });
 
         // No refresh button, so the card reloads whenever an input changes.
-        el('theme').addEventListener('change', reload);
+        el('theme').addEventListener('change', function () {
+            syncThemeNote();
+            reload();
+        });
         el('format').addEventListener('change', function () {
             syncAnimationRow();
             reload();
@@ -567,6 +592,7 @@
             });
 
             syncAnimationRow();
+            syncThemeNote();
             describeAnimation(loaded.animations);
 
             buildSwatches(loaded.backgrounds, loaded.defaultBackground);

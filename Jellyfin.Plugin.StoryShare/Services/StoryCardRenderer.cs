@@ -377,7 +377,11 @@ public class StoryCardRenderer
 
         // Bottom up. Each gap is only spent if the thing above it exists, so a track
         // with no rating does not leave a hole where the fact row would have been.
-        var cursor = context.ContentBottom(120f);
+        //
+        // The block runs all the way to the safe line because there is no footer under
+        // it: the footer text is set as the line above the title instead — see
+        // DrawBleedEyebrow — and printing it twice was saying the same thing twice.
+        var cursor = Card.SafeBottom;
 
         var factsTop = cursor - factsHeight;
         cursor = factsHeight > 0f ? factsTop - 40f : cursor;
@@ -392,6 +396,9 @@ public class StoryCardRenderer
         cursor = subtitle is null ? cursor : subtitleTop - 20f;
 
         var titleTop = cursor - title.Height;
+        var eyebrow = string.IsNullOrWhiteSpace(context.FooterText)
+            ? null
+            : context.FooterText.ToUpperInvariant();
         var eyebrowBaseline = titleTop - 34f;
 
         // The scrim goes down first and is anchored to the type: a title that wraps to
@@ -399,7 +406,11 @@ public class StoryCardRenderer
         DrawBleedScrim(canvas, eyebrowBaseline - 60f, deep);
 
         DrawBleedBrand(canvas, context, Margin);
-        DrawBleedEyebrow(canvas, Margin, eyebrowBaseline, palette, context.Bold);
+
+        if (eyebrow is not null)
+        {
+            DrawBleedEyebrow(canvas, eyebrow, Margin, eyebrowBaseline, MaxWidth, palette, context.Bold);
+        }
 
         title.Draw(canvas, titleTop);
         subtitle?.Draw(canvas, subtitleTop);
@@ -414,8 +425,6 @@ public class StoryCardRenderer
         {
             DrawBleedFacts(canvas, facts, Margin, factsTop, FactHeight, palette, context.Regular);
         }
-
-        DrawBleedFooter(canvas, context, Margin);
 
         return surface.Snapshot();
     }
@@ -507,8 +516,10 @@ public class StoryCardRenderer
     /// </summary>
     private void DrawBleedBrand(SKCanvas canvas, LayoutContext context, float margin)
     {
-        const float LogoHeight = 110f;
-        const float MaxLogoWidth = 560f;
+        const float LogoHeight = 220f;
+        // Nearly the full width the type gets. A lockup is mostly wordmark, so it has
+        // to be allowed to run wide before the height cap is the thing holding it back.
+        const float MaxLogoWidth = 820f;
 
         using var logo = LoadBrandLogo(context.Config.BrandLogoPath);
         var palette = context.Palette;
@@ -565,15 +576,26 @@ public class StoryCardRenderer
         }
     }
 
-    /// <summary>The accent line above the title: a play mark and a letterspaced label.</summary>
+    /// <summary>
+    /// The accent line above the title: a play mark and a letterspaced label.
+    ///
+    /// The label is the footer text, which is where this style's only copy of it now
+    /// lives. Printing "NOW PLAYING" here and "Now playing in <server>" along the
+    /// bottom said the same thing twice, and the bottom of a poster is not where the
+    /// eye starts.
+    /// </summary>
     private static void DrawBleedEyebrow(
         SKCanvas canvas,
+        string label,
         float margin,
         float baseline,
+        float maxWidth,
         Palette palette,
         SKTypeface bold)
     {
         const float Mark = 30f;
+        const float Tracking = 5f;
+        const float Gap = 22f;
 
         using (var play = new SKPaint { IsAntialias = true, Color = palette.Accent })
         {
@@ -586,9 +608,19 @@ public class StoryCardRenderer
             canvas.DrawPath(path, play);
         }
 
+        var textX = margin + Mark + Gap;
         using var font = new SKFont(bold, 30f) { Edging = SKFontEdging.SubpixelAntialias };
+
+        // The label is whatever the footer says, so it can be any length. Letterspacing
+        // is part of the width, which is why this measures rather than trusting the font.
+        while (font.Size > 18f
+            && font.MeasureText(label) + (label.Length * Tracking) > maxWidth - (textX - margin))
+        {
+            font.Size -= 1f;
+        }
+
         using var paint = new SKPaint { IsAntialias = true, Color = palette.Accent };
-        DrawTracked(canvas, "NOW PLAYING", margin + Mark + 22f, baseline, 5f, font, paint);
+        DrawTracked(canvas, label, textX, baseline, Tracking, font, paint);
     }
 
     /// <summary>
@@ -806,32 +838,6 @@ public class StoryCardRenderer
                 break;
             }
         }
-    }
-
-    /// <summary>
-    /// The footer, moved to the left margin so it lines up with everything else. Every
-    /// other style centres it, and a centred line under a left-aligned stack reads as
-    /// a mistake rather than as a choice.
-    /// </summary>
-    private void DrawBleedFooter(SKCanvas canvas, LayoutContext context, float margin)
-    {
-        if (string.IsNullOrWhiteSpace(context.FooterText))
-        {
-            return;
-        }
-
-        using var typeface = CreateTypeface(SKFontStyleWeight.Normal);
-        using var font = new SKFont(typeface, 34f) { Edging = SKFontEdging.SubpixelAntialias };
-        using var paint = new SKPaint
-        {
-            IsAntialias = true,
-            Color = context.Palette.Footer,
-            ImageFilter = SKImageFilter.CreateDropShadow(0, 2f, 6f, 6f, new SKColor(0, 0, 0, 150))
-        };
-        using var dot = new SKPaint { IsAntialias = true, Color = context.Palette.Accent };
-
-        canvas.DrawCircle(margin + 9f, Card.FooterBaseline - 11f, 9f, dot);
-        canvas.DrawText(context.FooterText, margin + 36f, Card.FooterBaseline, SKTextAlign.Left, font, paint);
     }
 
     // ---------------------------------------------------------------- polaroid

@@ -120,6 +120,9 @@ await Save("bg-teal-crate", track, new StoryCardOptions { Theme = CardTheme.Cass
 // configured one does, and an empty footer still has to hide it entirely.
 await Save("footer-placeholder", movie, new StoryCardOptions { Theme = CardTheme.Minimal, FooterText = "Streaming from {server}" });
 await Save("footer-none", movie, new StoryCardOptions { Theme = CardTheme.Minimal, FooterText = string.Empty });
+// Full bleed sets the footer as its eyebrow instead of printing it along the bottom,
+// so an empty footer has to leave the line out rather than leave a gap above the title.
+await Save("footer-none-fullbleed", movie, new StoryCardOptions { Theme = CardTheme.FullBleed, FooterText = string.Empty });
 
 // Animation: raw RGBA frames. Compared pixel-exactly, mid-loop must differ from
 // the start (there is motion) while the final frame must be nearly back at the

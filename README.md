@@ -77,7 +77,7 @@ in the plugin settings:
 | Style | What it looks like |
 | --- | --- |
 | **Poster** | Cover on a blurred version of its own artwork. |
-| **Full bleed** | The cover printed edge to edge — whichever of the poster and the backdrop loses least to the crop — with your mark in the top corner and the type set against the bottom left: a *now playing* line, the title, a rule and a row of facts with icons. |
+| **Full bleed** | The cover printed edge to edge — whichever of the poster and the backdrop loses least to the crop — with your mark in the top corner and the type set against the bottom left: the footer line set as an accent eyebrow, the title, a rule and a row of facts with icons. |
 | **Minimal** | Flat background, no photographic backdrop. |
 | **Polaroid** | Cover set into a square print on a tilted paper card, caption printed on the card below it. |
 | **Vinyl** | Cover cut into a record — grooves, label ring and spindle hole. Spins in the video, at 10 rpm. |
@@ -122,6 +122,11 @@ It is read per card rather than captured at startup, and it falls back to `Jelly
 if the server has no name set. Leaving the field **empty** still hides the footer
 entirely — that is what empty has always meant, and the placeholder expansion
 deliberately leaves empty text alone.
+
+**Full bleed sets the same line above the title instead**, in caps and in the accent
+colour, and prints nothing along the bottom. It is the one line either way: a poster
+that said *NOW PLAYING* over the title and *Now playing in <server>* under the fold
+was saying the same thing twice.
 
 ### Your own logo on a Full bleed card
 
