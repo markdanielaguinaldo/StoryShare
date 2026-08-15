@@ -77,7 +77,7 @@ in the plugin settings:
 | Style | What it looks like |
 | --- | --- |
 | **Poster** | Cover on a blurred version of its own artwork. |
-| **Full bleed** | The cover printed edge to edge — whichever of the poster and the backdrop loses least to the crop — with everything set against the bottom left: the title, a rule, a row of facts with icons, your mark, and the footer line along the very bottom. |
+| **Full bleed** | The cover printed edge to edge — whichever of the poster and the backdrop loses least to the crop — with your mark in the top left and everything else set against the bottom left: the title, a rule, a row of facts with icons, and the footer line along the very bottom. |
 | **Minimal** | Flat background, no photographic backdrop. |
 | **Polaroid** | Cover set into a square print on a tilted paper card, caption printed on the card below it. |
 | **Vinyl** | Cover cut into a record — grooves, label ring and spindle hole. Spins in the video, at 10 rpm. |
@@ -130,18 +130,18 @@ entirely — that is what empty has always meant, and the placeholder expansion
 deliberately leaves empty text alone.
 
 **Full bleed sets the same line in caps and in the accent colour**, along the very
-bottom under the mark. It is the one line either way: a card that said *NOW PLAYING*
+bottom under the facts. It is the one line either way: a card that said *NOW PLAYING*
 over the title and *Now playing in <server>* under the fold was saying the same thing
 twice.
 
 ### Your own logo on a Full bleed card
 
 **Brand logo** in the settings takes a full path to an image on the server, and Full
-bleed prints it above the footer line on the same left margin as everything else —
-your server's lockup, not this plugin's. Leave it empty and the corner is set as type
-instead, so the card never has a hole in it. The stack of type above stops wherever
-the mark starts, so a tall logo simply takes its room from the picture rather than
-landing on the title.
+bleed prints it in the top left, on the same left margin as everything else — your
+server's lockup, not this plugin's. Leave it empty and the corner is set as type
+instead, so the card never has a hole in it. It hangs from the safe line rather than
+the type's own margin, because Instagram's chrome reaches further down the card than
+it does in from the sides.
 
 A path rather than an upload because a plugin has nowhere to put an uploaded file that
 a server upgrade will not wipe, and any server that has a logo already keeps it

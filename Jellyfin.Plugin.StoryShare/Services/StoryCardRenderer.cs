@@ -317,11 +317,11 @@ public class StoryCardRenderer
     }
 
     /// <summary>
-    /// Everything printed over the picture, in one layer: the stack of type up the
-    /// bottom left, the mark under it and the now-playing line along the very bottom,
-    /// all on the same margin. Baked rather than drawn per frame, and drawn outside
-    /// the tilt and the drift, so Float slides the picture underneath while the words
-    /// stay exactly where they were set.
+    /// Everything printed over the picture, in one layer: the mark in the top left,
+    /// the stack of type up the bottom left and the now-playing line along the very
+    /// bottom, all on the same margin. Baked rather than drawn per frame, and drawn
+    /// outside the tilt and the drift, so Float slides the picture underneath while
+    /// the words stay exactly where they were set.
     /// </summary>
     private SKImage BuildBleedLayer(LayoutContext context)
     {
@@ -330,12 +330,6 @@ public class StoryCardRenderer
         const float RuleWidth = 150f;
         const float RuleHeight = 5f;
         const float FactHeight = 46f;
-        // The mark sits above the now-playing line rather than beside it. Side by side
-        // they would have to share 904 points between them, and the one that gave way
-        // would be the logo — which is the half nobody can read at half the size. Both
-        // hang off the same left margin as the title, so the card has one edge to read
-        // down rather than two.
-        const float BrandBottom = 1668f;
 
         var palette = context.Palette;
         var background = palette.Background;
@@ -385,11 +379,10 @@ public class StoryCardRenderer
         var facts = BuildIconFacts(context.Item, context.Config);
         var factsHeight = facts.Count > 0 ? FactHeight : 0f;
 
-        // Bottom up, starting clear of the mark in the corner. Each gap is only spent
-        // if the thing above it exists, so a track with no rating does not leave a hole
-        // where the fact row would have been.
-        using var logo = LoadBrandLogo(context.Config.BrandLogoPath);
-        var cursor = BrandBottom - BrandHeight(logo) - 46f;
+        // Bottom up from the safe line, with only the now-playing rule under it. Each
+        // gap is only spent if the thing above it exists, so a track with no rating
+        // does not leave a hole where the fact row would have been.
+        var cursor = Card.SafeBottom;
 
         var factsTop = cursor - factsHeight;
         cursor = factsHeight > 0f ? factsTop - 40f : cursor;
@@ -409,7 +402,7 @@ public class StoryCardRenderer
         // three lines has to be sitting on the dark part of the ramp, not above it.
         DrawBleedScrim(canvas, titleTop - 60f, deep, !background.IsAuto);
 
-        DrawBleedBrand(canvas, context, logo, Margin, BrandBottom);
+        DrawBleedBrand(canvas, context, Margin, BleedBrandTop);
 
         if (!string.IsNullOrWhiteSpace(context.FooterText))
         {
@@ -543,46 +536,34 @@ public class StoryCardRenderer
     // be allowed to run wide before the height cap is the thing holding it back.
     private const float BleedLogoMaxWidth = 820f;
 
-    /// <summary>Two lines of type, when there is no logo to print in their place.</summary>
-    private const float BleedWordmarkHeight = 96f;
+    /// <summary>
+    /// Where the mark hangs from. The safe line rather than the margin the type uses,
+    /// because Instagram's own chrome comes further down the card than it does in from
+    /// the sides — a lockup on an 88pt top margin sits under the account name.
+    /// </summary>
+    private const float BleedBrandTop = Card.SafeTop;
 
     /// <summary>
-    /// How much room the mark needs, so the stack of type above it knows where to
-    /// stop. Measured rather than assumed, because a tall narrow logo and a wide flat
-    /// one leave very different amounts of card behind.
+    /// The mark in the top left, on the same left margin as everything else on the
+    /// card, with the whole bottom of the card left to the type. A configured logo is
+    /// drawn on its own — a lockup already says whose server this is — and without one
+    /// the wordmark is set as type instead, so the corner is never empty.
     /// </summary>
-    private static float BrandHeight(SKBitmap? logo)
-    {
-        if (logo is null || logo.Height <= 0)
-        {
-            return BleedWordmarkHeight;
-        }
-
-        var aspect = logo.Width / (float)logo.Height;
-        return Math.Min(BleedLogoMaxWidth, BleedLogoHeight * aspect) / aspect;
-    }
-
-    /// <summary>
-    /// The mark above the now-playing line, on the same left margin as everything
-    /// else on the card. A configured logo is drawn on its own — a lockup already says
-    /// whose server this is — and without one the wordmark is set as type instead, so
-    /// the corner is never empty.
-    /// </summary>
-    private static void DrawBleedBrand(
+    private void DrawBleedBrand(
         SKCanvas canvas,
         LayoutContext context,
-        SKBitmap? logo,
         float margin,
-        float bottom)
+        float top)
     {
         var palette = context.Palette;
 
+        using var logo = LoadBrandLogo(context.Config.BrandLogoPath);
         if (logo is not null)
         {
             var aspect = logo.Width / (float)logo.Height;
             var width = Math.Min(BleedLogoMaxWidth, BleedLogoHeight * aspect);
             var height = width / aspect;
-            var rect = SKRect.Create(margin, bottom - height, width, height);
+            var rect = SKRect.Create(margin, top, width, height);
 
             using var image = SKImage.FromBitmap(logo);
             using var paint = new SKPaint
@@ -606,8 +587,8 @@ public class StoryCardRenderer
             ImageFilter = BleedTextShadow(palette, 8f)
         };
 
-        canvas.DrawText("Shared with", margin, bottom - 62f, SKTextAlign.Left, small, muted);
-        canvas.DrawText("Story Share", margin, bottom - 8f, SKTextAlign.Left, large, strong);
+        canvas.DrawText("Shared with", margin, top + 34f, SKTextAlign.Left, small, muted);
+        canvas.DrawText("Story Share", margin, top + 88f, SKTextAlign.Left, large, strong);
     }
 
     /// <summary>
