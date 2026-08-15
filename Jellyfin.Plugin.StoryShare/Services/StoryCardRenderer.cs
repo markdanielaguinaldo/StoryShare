@@ -245,11 +245,15 @@ public class StoryCardRenderer
     // ---------------------------------------------------------------- full bleed
 
     /// <summary>
-    /// The picture is the card. It is drawn as an oversized art panel rather than as
-    /// a background layer, which is what finally gives Full bleed the push in, the
-    /// drift and the beat every other style has: all three hang off the art panel,
-    /// and a style with no panel had none of them — every animation produced the
-    /// same video.
+    /// The picture is the card, and the type is set against its lower left corner
+    /// rather than centred across the middle of it — a poster rather than a caption.
+    /// The block is stacked upward from a fixed line, so it sits in the same place
+    /// whether the title takes one row or three.
+    ///
+    /// The artwork is drawn as an oversized art panel rather than as a background
+    /// layer, which is what gives Full bleed the push in, the drift and the beat every
+    /// other style has: all three hang off the art panel, and a style with no panel
+    /// had none of them — every animation produced the same video.
     /// </summary>
     private CardScene BuildFullBleed(LayoutContext context)
     {
@@ -257,24 +261,10 @@ public class StoryCardRenderer
         // can never bring a black margin into view.
         const float Overscan = 40f;
 
-        var lines = BuildTextBlock(context, context.Palette, SpecFor(CardTheme.FullBleed));
-        var textHeight = TotalHeight(lines);
-        var textTop = context.ContentBottom() - textHeight;
-
         var window = new SKRect(-Overscan, -Overscan, Card.Width + Overscan, Card.Height + Overscan);
         var (art, spare) = ChooseBleedSource(context.Art, context.Backdrop, window);
 
-        // A chosen preset cannot recolour the picture without spoiling the one thing
-        // this style exists to show, so it colours the scrim the text sits on instead.
-        var background = context.Palette.Background;
-        var deep = background.IsAuto ? SKColors.Black : background.Bottom;
-
-        var textLayer = BuildOverlayLayer(
-            lines,
-            textTop,
-            Footer(context),
-            canvas => DrawBleedScrim(canvas, textTop, deep));
-        Dispose(lines);
+        var textLayer = BuildBleedLayer(context);
 
         return new CardScene
         {
@@ -324,24 +314,158 @@ public class StoryCardRenderer
     }
 
     /// <summary>
-    /// The ramp the type is read against. Baked into the text layer rather than drawn
-    /// per frame, so Float slides the picture underneath it and the words stay where
-    /// they were put.
+    /// Everything printed over the picture, in one layer: the mark at the top, and the
+    /// stack of type across the bottom left. Baked rather than drawn per frame, and
+    /// drawn outside the tilt and the drift, so Float slides the picture underneath
+    /// while the words stay exactly where they were set.
     /// </summary>
-    private static void DrawBleedScrim(SKCanvas canvas, float textTop, SKColor deep)
+    private SKImage BuildBleedLayer(LayoutContext context)
+    {
+        const float Margin = 88f;
+        const float MaxWidth = Card.Width - (Margin * 2f);
+        const float RuleWidth = 150f;
+        const float RuleHeight = 5f;
+        const float FactHeight = 46f;
+
+        var palette = context.Palette;
+        var background = palette.Background;
+
+        // A chosen preset cannot recolour the picture without spoiling the one thing
+        // this style exists to show, so it colours the scrim the type sits on instead.
+        var deep = background.IsAuto ? SKColors.Black : background.Bottom;
+
+        using var surface = SKSurface.Create(
+            new SKImageInfo(Card.Width, Card.Height, SKColorType.Rgba8888, SKAlphaType.Premul));
+        var canvas = surface.Canvas;
+        canvas.Clear(SKColors.Transparent);
+
+        // Measured before anything is drawn: the stack is laid out from the bottom up,
+        // so every height has to be known before the first baseline can be placed.
+        using var title = TextBlock.Fit(
+            string.IsNullOrWhiteSpace(context.Item.Name) ? "Untitled" : context.Item.Name,
+            context.Bold,
+            98f,
+            54f,
+            3,
+            palette.Title,
+            MaxWidth,
+            palette.TextShadow,
+            0f,
+            SKTextAlign.Left,
+            Margin);
+
+        var subtitleText = BuildSubtitle(context.Item, context.Config);
+        using var subtitle = string.IsNullOrEmpty(subtitleText)
+            ? null
+            : TextBlock.Fit(
+                subtitleText,
+                context.Regular,
+                38f,
+                28f,
+                2,
+                palette.Subtitle,
+                MaxWidth,
+                palette.TextShadow,
+                0f,
+                SKTextAlign.Left,
+                Margin);
+
+        using var comment = BuildBleedComment(context, MaxWidth, Margin);
+
+        var facts = BuildIconFacts(context.Item, context.Config);
+        var factsHeight = facts.Count > 0 ? FactHeight : 0f;
+
+        // Bottom up. Each gap is only spent if the thing above it exists, so a track
+        // with no rating does not leave a hole where the fact row would have been.
+        var cursor = context.ContentBottom(120f);
+
+        var factsTop = cursor - factsHeight;
+        cursor = factsHeight > 0f ? factsTop - 40f : cursor;
+
+        var ruleY = cursor - RuleHeight;
+        cursor = ruleY - 42f;
+
+        var commentTop = cursor - (comment?.Height ?? 0f);
+        cursor = comment is null ? cursor : commentTop - 34f;
+
+        var subtitleTop = cursor - (subtitle?.Height ?? 0f);
+        cursor = subtitle is null ? cursor : subtitleTop - 20f;
+
+        var titleTop = cursor - title.Height;
+        var eyebrowBaseline = titleTop - 34f;
+
+        // The scrim goes down first and is anchored to the type: a title that wraps to
+        // three lines has to be sitting on the dark part of the ramp, not above it.
+        DrawBleedScrim(canvas, eyebrowBaseline - 60f, deep);
+
+        DrawBleedBrand(canvas, context, Margin);
+        DrawBleedEyebrow(canvas, Margin, eyebrowBaseline, palette, context.Bold);
+
+        title.Draw(canvas, titleTop);
+        subtitle?.Draw(canvas, subtitleTop);
+        comment?.Draw(canvas, commentTop);
+
+        using (var rule = new SKPaint { IsAntialias = true, Color = palette.Accent })
+        {
+            canvas.DrawRect(SKRect.Create(Margin, ruleY, RuleWidth, RuleHeight), rule);
+        }
+
+        if (facts.Count > 0)
+        {
+            DrawBleedFacts(canvas, facts, Margin, factsTop, FactHeight, palette, context.Regular);
+        }
+
+        DrawBleedFooter(canvas, context, Margin);
+
+        return surface.Snapshot();
+    }
+
+    /// <summary>The caption, set as the tagline it stands in for rather than as a quote.</summary>
+    private static TextBlock? BuildBleedComment(LayoutContext context, float maxWidth, float margin)
+    {
+        if (string.IsNullOrWhiteSpace(context.Options.Comment))
+        {
+            return null;
+        }
+
+        var comment = context.Options.Comment.Trim();
+        if (comment.Length > 180)
+        {
+            comment = comment[..180].TrimEnd() + "…";
+        }
+
+        return TextBlock.Fit(
+            comment,
+            context.Regular,
+            40f,
+            30f,
+            3,
+            context.Palette.Muted,
+            maxWidth,
+            context.Palette.TextShadow * 0.75f,
+            0f,
+            SKTextAlign.Left,
+            margin);
+    }
+
+    /// <summary>
+    /// The ramp the type is read against: down the left, where the words are, and up
+    /// from the bottom, where most of them are. Two directions rather than one, because
+    /// a purely vertical ramp has to be almost opaque before left-aligned type over a
+    /// bright corner is safe, and that buries the picture.
+    /// </summary>
+    private static void DrawBleedScrim(SKCanvas canvas, float typeTop, SKColor deep)
     {
         var full = new SKRect(0, 0, Card.Width, Card.Height);
 
-        // Anchored to the text rather than to the card, so a title that wraps to
-        // three lines is still sitting on the dark part of the ramp.
-        var start = Math.Clamp((textTop - 280f) / Card.Height, 0.24f, 0.82f);
+        var start = Math.Clamp(typeTop / Card.Height, 0.2f, 0.8f);
 
         using (var bottom = new SKPaint
         {
             Shader = SKShader.CreateLinearGradient(
                 new SKPoint(0, 0),
                 new SKPoint(0, Card.Height),
-                new[] { deep.WithAlpha(0), deep.WithAlpha(160), deep.WithAlpha(242) },
+                new[] { deep.WithAlpha(0), deep.WithAlpha(170), deep.WithAlpha(246) },
                 new[] { start, (start + 1f) / 2f, 1f },
                 SKShaderTileMode.Clamp)
         })
@@ -349,18 +473,365 @@ public class StoryCardRenderer
             canvas.DrawRect(full, bottom);
         }
 
-        // A little weight at the top as well. Instagram lays its own chrome over that
-        // strip, and a bright sky up there leaves it with nothing to sit on.
+        using (var left = new SKPaint
+        {
+            Shader = SKShader.CreateLinearGradient(
+                new SKPoint(0, 0),
+                new SKPoint(Card.Width * 0.72f, 0),
+                new[] { deep.WithAlpha(150), deep.WithAlpha(0) },
+                null,
+                SKShaderTileMode.Clamp)
+        })
+        {
+            canvas.DrawRect(full, left);
+        }
+
+        // The mark at the top needs the same courtesy, and Instagram lays its own
+        // chrome across that strip anyway.
         using var top = new SKPaint
         {
             Shader = SKShader.CreateLinearGradient(
                 new SKPoint(0, 0),
-                new SKPoint(0, Card.Height * 0.26f),
-                new[] { deep.WithAlpha(120), deep.WithAlpha(0) },
+                new SKPoint(0, Card.Height * 0.28f),
+                new[] { deep.WithAlpha(165), deep.WithAlpha(0) },
                 null,
                 SKShaderTileMode.Clamp)
         };
         canvas.DrawRect(full, top);
+    }
+
+    /// <summary>
+    /// The mark in the top left. A configured logo is drawn on its own — a lockup
+    /// already says whose server this is — and without one the wordmark is set as
+    /// type instead, so the corner is never empty.
+    /// </summary>
+    private void DrawBleedBrand(SKCanvas canvas, LayoutContext context, float margin)
+    {
+        const float LogoHeight = 110f;
+        const float MaxLogoWidth = 560f;
+
+        using var logo = LoadBrandLogo(context.Config.BrandLogoPath);
+        var palette = context.Palette;
+
+        if (logo is not null)
+        {
+            var width = Math.Min(MaxLogoWidth, LogoHeight * (logo.Width / (float)logo.Height));
+            var height = width / (logo.Width / (float)logo.Height);
+            var rect = SKRect.Create(margin, Card.SafeTop, width, height);
+
+            using var image = SKImage.FromBitmap(logo);
+            using var paint = new SKPaint
+            {
+                ImageFilter = SKImageFilter.CreateDropShadow(0, 3f, 10f, 10f, new SKColor(0, 0, 0, 150))
+            };
+            canvas.DrawImage(image, new SKRect(0, 0, logo.Width, logo.Height), rect, Card.Sampling, paint);
+            return;
+        }
+
+        using var small = new SKFont(context.Regular, 28f) { Edging = SKFontEdging.SubpixelAntialias };
+        using var large = new SKFont(context.Bold, 48f) { Edging = SKFontEdging.SubpixelAntialias };
+        using var muted = new SKPaint { IsAntialias = true, Color = palette.Muted };
+        using var strong = new SKPaint
+        {
+            IsAntialias = true,
+            Color = palette.Title,
+            ImageFilter = SKImageFilter.CreateDropShadow(0, 3f, 8f, 8f, new SKColor(0, 0, 0, 160))
+        };
+
+        canvas.DrawText("Shared with", margin, Card.SafeTop + 24f, SKTextAlign.Left, small, muted);
+        canvas.DrawText("Story Share", margin, Card.SafeTop + 80f, SKTextAlign.Left, large, strong);
+    }
+
+    /// <summary>
+    /// A brand lockup to print on the card, from wherever the server keeps it. Any
+    /// failure is silent and simply means no logo: a card that renders without one is
+    /// a great deal better than a share that fails because a path was mistyped.
+    /// </summary>
+    private SKBitmap? LoadBrandLogo(string? path)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            return null;
+        }
+
+        try
+        {
+            return File.Exists(path) ? SKBitmap.Decode(path) : null;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Story Share could not read the brand logo at {Path}", path);
+            return null;
+        }
+    }
+
+    /// <summary>The accent line above the title: a play mark and a letterspaced label.</summary>
+    private static void DrawBleedEyebrow(
+        SKCanvas canvas,
+        float margin,
+        float baseline,
+        Palette palette,
+        SKTypeface bold)
+    {
+        const float Mark = 30f;
+
+        using (var play = new SKPaint { IsAntialias = true, Color = palette.Accent })
+        {
+            using var path = new SKPath();
+            var top = baseline - Mark + 4f;
+            path.MoveTo(margin, top);
+            path.LineTo(margin + (Mark * 0.88f), top + (Mark / 2f));
+            path.LineTo(margin, top + Mark);
+            path.Close();
+            canvas.DrawPath(path, play);
+        }
+
+        using var font = new SKFont(bold, 30f) { Edging = SKFontEdging.SubpixelAntialias };
+        using var paint = new SKPaint { IsAntialias = true, Color = palette.Accent };
+        DrawTracked(canvas, "NOW PLAYING", margin + Mark + 22f, baseline, 5f, font, paint);
+    }
+
+    /// <summary>
+    /// Text with letterspacing, which SKFont has no setting for. Drawn a character at
+    /// a time because a label this small set solid reads as a word rather than as a
+    /// label, and every other approach means shipping a second font.
+    /// </summary>
+    private static void DrawTracked(
+        SKCanvas canvas,
+        string text,
+        float x,
+        float baseline,
+        float tracking,
+        SKFont font,
+        SKPaint paint)
+    {
+        foreach (var c in text)
+        {
+            var glyph = c.ToString();
+            canvas.DrawText(glyph, x, baseline, SKTextAlign.Left, font, paint);
+            x += font.MeasureText(glyph) + tracking;
+        }
+    }
+
+    /// <summary>What the icons stand for. Pill is the odd one out: it has no icon,
+    /// because a certificate is already a badge and drawing one beside it says the
+    /// same thing twice.</summary>
+    private enum FactIcon
+    {
+        Star,
+        Clock,
+        Calendar,
+        Tag,
+        Pill
+    }
+
+    private readonly record struct IconFact(FactIcon Icon, string Text);
+
+    /// <summary>
+    /// The same facts the chip styles print, typed so each can be given the icon that
+    /// belongs to it. The year is left out on purpose where the subtitle already
+    /// carries it, which for everything but music it does.
+    /// </summary>
+    private static List<IconFact> BuildIconFacts(BaseItem item, PluginConfiguration config)
+    {
+        var facts = new List<IconFact>();
+
+        if (item is Audio or MusicAlbum && item.ProductionYear.HasValue)
+        {
+            facts.Add(new IconFact(FactIcon.Calendar, item.ProductionYear.Value.ToString(CultureInfo.InvariantCulture)));
+        }
+
+        if (config.ShowRating && item.CommunityRating.HasValue)
+        {
+            facts.Add(new IconFact(
+                FactIcon.Star,
+                item.CommunityRating.Value.ToString("0.0", CultureInfo.InvariantCulture)));
+        }
+
+        if (!string.IsNullOrEmpty(item.OfficialRating))
+        {
+            facts.Add(new IconFact(FactIcon.Pill, item.OfficialRating));
+        }
+
+        if (config.ShowRuntime && item.RunTimeTicks is > 0)
+        {
+            var span = TimeSpan.FromTicks(item.RunTimeTicks.Value);
+            facts.Add(new IconFact(
+                FactIcon.Clock,
+                span.TotalHours >= 1
+                    ? $"{(int)span.TotalHours}h {span.Minutes}m"
+                    : $"{span.Minutes}m {span.Seconds}s"));
+        }
+
+        if (config.ShowGenres && item is Audio or MusicAlbum && item.Genres.Length > 0)
+        {
+            facts.Add(new IconFact(FactIcon.Tag, item.Genres[0]));
+        }
+
+        return facts.Take(4).ToList();
+    }
+
+    private static void DrawBleedFacts(
+        SKCanvas canvas,
+        IReadOnlyList<IconFact> facts,
+        float x,
+        float top,
+        float height,
+        Palette palette,
+        SKTypeface regular)
+    {
+        const float IconSize = 30f;
+        const float IconGap = 12f;
+        const float ItemGap = 38f;
+
+        using var font = new SKFont(regular, 30f) { Edging = SKFontEdging.SubpixelAntialias };
+        using var text = new SKPaint
+        {
+            IsAntialias = true,
+            Color = palette.Subtitle,
+            ImageFilter = SKImageFilter.CreateDropShadow(0, 2f, 6f, 6f, new SKColor(0, 0, 0, 140))
+        };
+        using var ink = new SKPaint
+        {
+            IsAntialias = true,
+            Color = palette.Accent,
+            Style = SKPaintStyle.Stroke,
+            StrokeWidth = 2.6f,
+            StrokeCap = SKStrokeCap.Round
+        };
+        using var fill = new SKPaint { IsAntialias = true, Color = palette.Accent };
+
+        var middle = top + (height / 2f);
+        var baseline = middle + 11f;
+
+        foreach (var fact in facts)
+        {
+            if (fact.Icon == FactIcon.Pill)
+            {
+                var width = font.MeasureText(fact.Text) + 36f;
+                var pill = SKRect.Create(x, top + 4f, width, height - 8f);
+
+                using (var edge = new SKPaint
+                {
+                    IsAntialias = true,
+                    Style = SKPaintStyle.Stroke,
+                    StrokeWidth = 2.6f,
+                    Color = palette.Accent
+                })
+                {
+                    canvas.DrawRoundRect(new SKRoundRect(pill, (height - 8f) / 2f), edge);
+                }
+
+                canvas.DrawText(fact.Text, pill.MidX, baseline, SKTextAlign.Center, font, text);
+                x = pill.Right + ItemGap;
+                continue;
+            }
+
+            DrawFactIcon(canvas, fact.Icon, SKRect.Create(x, middle - (IconSize / 2f), IconSize, IconSize), ink, fill);
+            var textX = x + IconSize + IconGap;
+            canvas.DrawText(fact.Text, textX, baseline, SKTextAlign.Left, font, text);
+            x = textX + font.MeasureText(fact.Text) + ItemGap;
+        }
+    }
+
+    /// <summary>
+    /// The little glyphs beside each fact, drawn rather than set: a system font that
+    /// has a calendar or a clock is not something a Jellyfin server can be assumed to
+    /// have, and a missing one renders as a tofu box.
+    /// </summary>
+    private static void DrawFactIcon(SKCanvas canvas, FactIcon icon, SKRect box, SKPaint stroke, SKPaint fill)
+    {
+        switch (icon)
+        {
+            case FactIcon.Star:
+            {
+                using var path = new SKPath();
+                var cx = box.MidX;
+                var cy = box.MidY;
+                var outer = box.Width / 2f;
+                var inner = outer * 0.46f;
+
+                for (var i = 0; i < 10; i++)
+                {
+                    var radius = i % 2 == 0 ? outer : inner;
+                    var angle = (-MathF.PI / 2f) + (i * MathF.PI / 5f);
+                    var px = cx + (radius * MathF.Cos(angle));
+                    var py = cy + (radius * MathF.Sin(angle));
+
+                    if (i == 0)
+                    {
+                        path.MoveTo(px, py);
+                    }
+                    else
+                    {
+                        path.LineTo(px, py);
+                    }
+                }
+
+                path.Close();
+                canvas.DrawPath(path, fill);
+                break;
+            }
+
+            case FactIcon.Clock:
+            {
+                var radius = (box.Width / 2f) - 1.5f;
+                canvas.DrawCircle(box.MidX, box.MidY, radius, stroke);
+                canvas.DrawLine(box.MidX, box.MidY, box.MidX, box.MidY - (radius * 0.52f), stroke);
+                canvas.DrawLine(box.MidX, box.MidY, box.MidX + (radius * 0.42f), box.MidY + (radius * 0.24f), stroke);
+                break;
+            }
+
+            case FactIcon.Calendar:
+            {
+                var body = SKRect.Create(box.Left + 1.5f, box.Top + 5f, box.Width - 3f, box.Height - 6.5f);
+                canvas.DrawRoundRect(new SKRoundRect(body, 4f), stroke);
+                canvas.DrawLine(body.Left, body.Top + 8f, body.Right, body.Top + 8f, stroke);
+                canvas.DrawLine(box.Left + 8f, box.Top, box.Left + 8f, box.Top + 8f, stroke);
+                canvas.DrawLine(box.Right - 8f, box.Top, box.Right - 8f, box.Top + 8f, stroke);
+                break;
+            }
+
+            case FactIcon.Tag:
+            {
+                using var path = new SKPath();
+                path.MoveTo(box.Left + 2f, box.Top + 4f);
+                path.LineTo(box.MidX + 3f, box.Top + 4f);
+                path.LineTo(box.Right - 2f, box.MidY);
+                path.LineTo(box.MidX + 3f, box.Bottom - 4f);
+                path.LineTo(box.Left + 2f, box.Bottom - 4f);
+                path.Close();
+                canvas.DrawPath(path, stroke);
+                canvas.DrawCircle(box.Left + 8f, box.MidY, 2.6f, fill);
+                break;
+            }
+        }
+    }
+
+    /// <summary>
+    /// The footer, moved to the left margin so it lines up with everything else. Every
+    /// other style centres it, and a centred line under a left-aligned stack reads as
+    /// a mistake rather than as a choice.
+    /// </summary>
+    private void DrawBleedFooter(SKCanvas canvas, LayoutContext context, float margin)
+    {
+        if (string.IsNullOrWhiteSpace(context.FooterText))
+        {
+            return;
+        }
+
+        using var typeface = CreateTypeface(SKFontStyleWeight.Normal);
+        using var font = new SKFont(typeface, 34f) { Edging = SKFontEdging.SubpixelAntialias };
+        using var paint = new SKPaint
+        {
+            IsAntialias = true,
+            Color = context.Palette.Footer,
+            ImageFilter = SKImageFilter.CreateDropShadow(0, 2f, 6f, 6f, new SKColor(0, 0, 0, 150))
+        };
+        using var dot = new SKPaint { IsAntialias = true, Color = context.Palette.Accent };
+
+        canvas.DrawCircle(margin + 9f, Card.FooterBaseline - 11f, 9f, dot);
+        canvas.DrawText(context.FooterText, margin + 36f, Card.FooterBaseline, SKTextAlign.Left, font, paint);
     }
 
     // ---------------------------------------------------------------- polaroid

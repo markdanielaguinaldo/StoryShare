@@ -71,6 +71,17 @@
                 </div>
 
                 <div class="inputContainer">
+                    <label class="inputLabel inputLabelUnfocused" for="BrandLogoPath">Brand logo (Full bleed)</label>
+                    <input is="emby-input" type="text" id="BrandLogoPath" name="BrandLogoPath"
+                           placeholder="C:\path\to\your-logo.png" />
+                    <div class="fieldDescription">
+                        Full path to an image on this server, printed in the top left of a
+                        <strong>Full bleed</strong> card. Your own logo, not this plugin's. Leave empty
+                        and the corner is set as type instead. A path that cannot be read is ignored.
+                    </div>
+                </div>
+
+                <div class="inputContainer">
                     <label class="inputLabel inputLabelUnfocused" for="AccentColor">Accent colour</label>
                     <input is="emby-input" type="text" id="AccentColor" name="AccentColor" placeholder="#00A4DC" />
                     <div class="fieldDescription">Leave empty to pull the accent from each item's artwork.</div>
@@ -174,7 +185,7 @@
 
             var checkboxes = ['ShowYear', 'ShowGenres', 'ShowRating', 'ShowRuntime', 'InjectClientScript',
                 'CacheEnabled'];
-            var textFields = ['FooterText', 'AccentColor', 'BackgroundColor', 'PublicBaseUrl'];
+            var textFields = ['FooterText', 'AccentColor', 'BackgroundColor', 'PublicBaseUrl', 'BrandLogoPath'];
 
             var backgroundsLoaded = false;
 

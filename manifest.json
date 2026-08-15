@@ -8,6 +8,14 @@
         "category":  "General",
         "versions":  [
                          {
+                             "version":  "1.3.0.4",
+                             "changelog":  "Full bleed rebuilt as a poster layout: your own logo in the top corner, and the type set against the bottom left with a now-playing line, a rule and a row of facts with icons. New Brand logo setting.",
+                             "targetAbi":  "10.11.0.0",
+                             "sourceUrl":  "https://github.com/markdanielaguinaldo/StoryShare/releases/download/v1.3.0.4/storyshare_1.3.0.4.zip",
+                             "checksum":  "5d4a50de26af8e68f7c39444140acc5c",
+                             "timestamp":  "2026-08-15T15:31:09Z"
+                         },
+                         {
                              "version":  "1.3.0.3",
                              "changelog":  "Reshapes the plugin logo to 16:9 so Jellyfin no longer pillarboxes it and shows it towering over the rest of the page.",
                              "targetAbi":  "10.11.0.0",

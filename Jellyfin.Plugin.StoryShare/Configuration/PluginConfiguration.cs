@@ -1,4 +1,4 @@
-using System.Security.Cryptography;
+﻿using System.Security.Cryptography;
 using MediaBrowser.Model.Plugins;
 
 namespace Jellyfin.Plugin.StoryShare.Configuration;
@@ -17,13 +17,13 @@ public enum CardTheme
     /// <summary>Cover in a tilted paper frame, caption printed on the paper below it.</summary>
     Polaroid = 3,
 
-    /// <summary>Cover cut into a record — grooves, label ring and spindle hole.</summary>
+    /// <summary>Cover cut into a record â€” grooves, label ring and spindle hole.</summary>
     Vinyl = 4,
 
     /// <summary>Cover fanned out as a pile of cards, the front one face up.</summary>
     Stack = 5,
 
-    /// <summary>Cinema ticket stub — perforated tear-off, cover across its head.</summary>
+    /// <summary>Cinema ticket stub â€” perforated tear-off, cover across its head.</summary>
     Ticket = 6,
 
     /// <summary>
@@ -37,12 +37,12 @@ public enum CardTheme
     /// </summary>
     Cassette = 7,
 
-    /// <summary>Review card — poster, a five-star row, and the caption as the review.</summary>
+    /// <summary>Review card â€” poster, a five-star row, and the caption as the review.</summary>
     Review = 8
 }
 
 /// <summary>
-/// How an animated card moves. Only the video uses this — a still is always the
+/// How an animated card moves. Only the video uses this â€” a still is always the
 /// scene at phase 0, so every one of these looks identical as an image.
 /// </summary>
 public enum CardAnimation
@@ -86,6 +86,17 @@ public class PluginConfiguration : BasePluginConfiguration
 
     /// <summary>The literal this plugin used to ship as the default, migrated on load.</summary>
     public const string LegacyFooterText = "Now playing in Project Mark";
+
+    /// <summary>
+    /// Full path to a logo to print in the top left of a Full bleed card â€” your own
+    /// server's lockup, not this plugin's. Empty sets "Story Share" as type instead.
+    ///
+    /// A path rather than an upload because there is nowhere in a plugin to put an
+    /// uploaded file that a server upgrade will not wipe, and every server already has
+    /// somewhere it keeps its branding. Unreadable paths are logged and ignored: a
+    /// card without a logo beats a share that fails over a typo.
+    /// </summary>
+    public string BrandLogoPath { get; set; } = string.Empty;
 
     public bool ShowYear { get; set; } = true;
 
@@ -136,7 +147,7 @@ public class PluginConfiguration : BasePluginConfiguration
     /// Keeps finished cards in memory so re-opening a share link, or flipping back
     /// to a style already previewed, does not redraw. A Vinyl video costs ~17s of
     /// drawing plus two ffmpeg passes, and the dialog asks for the same card twice
-    /// — once for the preview, once when the link is opened.
+    /// â€” once for the preview, once when the link is opened.
     /// </summary>
     public bool CacheEnabled { get; set; } = true;
 

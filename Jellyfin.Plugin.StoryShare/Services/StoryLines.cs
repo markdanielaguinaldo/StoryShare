@@ -162,20 +162,29 @@ internal sealed class TextBlock : IStoryLine
     private readonly SKFont _font;
     private readonly SKPaint _paint;
     private readonly float _lineHeight;
+    private readonly SKTextAlign _align;
+    private readonly float _anchorX;
 
     private TextBlock(
         IReadOnlyList<string> lines,
         SKFont font,
         SKPaint paint,
         float lineHeight,
-        float spacingAfter)
+        float spacingAfter,
+        SKTextAlign align,
+        float anchorX)
     {
         _lines = lines;
         _font = font;
         _paint = paint;
         _lineHeight = lineHeight;
         SpacingAfter = spacingAfter;
+        _align = align;
+        _anchorX = anchorX;
     }
+
+    /// <summary>The widest line, for anything that has to sit under or beside the block.</summary>
+    public float Width => _lines.Count == 0 ? 0f : _lines.Max(line => _font.MeasureText(line));
 
     public float Height => _lines.Count * _lineHeight;
 
@@ -190,7 +199,11 @@ internal sealed class TextBlock : IStoryLine
         SKColor color,
         float maxWidth,
         float shadow,
-        float spacingAfter)
+        float spacingAfter,
+        // Every style but Full bleed centres on the card, so the anchor defaults to
+        // the middle of it and only the odd one out has to say anything.
+        SKTextAlign align = SKTextAlign.Center,
+        float anchorX = Card.CenterX)
     {
         var font = new SKFont(typeface, maxSize) { Edging = SKFontEdging.SubpixelAntialias };
         var paint = new SKPaint
@@ -222,7 +235,7 @@ internal sealed class TextBlock : IStoryLine
 
         var metrics = font.Metrics;
         var lineHeight = (metrics.Descent - metrics.Ascent) * 1.02f;
-        return new TextBlock(lines, font, paint, lineHeight, spacingAfter);
+        return new TextBlock(lines, font, paint, lineHeight, spacingAfter, align, anchorX);
     }
 
     public void Draw(SKCanvas canvas, float top)
@@ -231,7 +244,7 @@ internal sealed class TextBlock : IStoryLine
 
         foreach (var line in _lines)
         {
-            canvas.DrawText(line, Card.CenterX, baseline, SKTextAlign.Center, _font, _paint);
+            canvas.DrawText(line, _anchorX, baseline, _align, _font, _paint);
             baseline += _lineHeight;
         }
     }

@@ -77,7 +77,7 @@ in the plugin settings:
 | Style | What it looks like |
 | --- | --- |
 | **Poster** | Cover on a blurred version of its own artwork. |
-| **Full bleed** | The cover printed edge to edge — whichever of the poster and the backdrop loses least to the crop — with the text on a gradient along the bottom. |
+| **Full bleed** | The cover printed edge to edge — whichever of the poster and the backdrop loses least to the crop — with your mark in the top corner and the type set against the bottom left: a *now playing* line, the title, a rule and a row of facts with icons. |
 | **Minimal** | Flat background, no photographic backdrop. |
 | **Polaroid** | Cover set into a square print on a tilted paper card, caption printed on the card below it. |
 | **Vinyl** | Cover cut into a record — grooves, label ring and spindle hole. Spins in the video, at 10 rpm. |
@@ -122,6 +122,17 @@ It is read per card rather than captured at startup, and it falls back to `Jelly
 if the server has no name set. Leaving the field **empty** still hides the footer
 entirely — that is what empty has always meant, and the placeholder expansion
 deliberately leaves empty text alone.
+
+### Your own logo on a Full bleed card
+
+**Brand logo** in the settings takes a full path to an image on the server, and Full
+bleed prints it in the top left — your server's lockup, not this plugin's. Leave it
+empty and the corner is set as type instead, so the card never has a hole in it.
+
+A path rather than an upload because a plugin has nowhere to put an uploaded file that
+a server upgrade will not wipe, and any server that has a logo already keeps it
+somewhere. A path that cannot be read is logged and ignored: a card without a logo is
+better than a share that fails over a typo.
 
 > Up to 1.1.0.0 the default was the literal `Now playing in Project Mark` — one
 > particular server's name, hardcoded — so every other install printed a stranger's
