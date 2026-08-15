@@ -26,7 +26,15 @@ public enum CardTheme
     /// <summary>Cinema ticket stub — perforated tear-off, cover across its head.</summary>
     Ticket = 6,
 
-    /// <summary>Cover as a cassette sleeve, the tape sliding out of it.</summary>
+    /// <summary>
+    /// Cover at the front of a crate, sleeves receding behind it. Shown as "Crate".
+    ///
+    /// The member keeps its old name because it is the wire name: it is what the
+    /// settings page posts, what a <c>?theme=</c> query string carries and what the
+    /// config XML on disk already says. Renaming it would fail to parse every saved
+    /// configuration, and that file holds the key every outstanding share link is
+    /// signed with.
+    /// </summary>
     Cassette = 7,
 
     /// <summary>Review card — poster, a five-star row, and the caption as the review.</summary>
@@ -39,7 +47,7 @@ public enum CardTheme
 /// </summary>
 public enum CardAnimation
 {
-    /// <summary>What the style does by itself: push in, spin on Vinyl, hubs on Cassette.</summary>
+    /// <summary>What the style does by itself: push in, or spin on Vinyl.</summary>
     Auto = 0,
 
     /// <summary>The whole card drifts through a slow figure of eight.</summary>

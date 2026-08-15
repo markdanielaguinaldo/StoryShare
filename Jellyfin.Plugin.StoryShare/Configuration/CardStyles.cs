@@ -42,7 +42,10 @@ public static class CardThemes
         new(CardTheme.Vinyl, "Vinyl", "Cover cut into a record, grooves and all. Spins in the video."),
         new(CardTheme.Stack, "Stack", "Cover fanned out as a pile of cards, the front one face up."),
         new(CardTheme.Ticket, "Ticket", "Cinema stub with the cover printed across its head."),
-        new(CardTheme.Cassette, "Cassette", "Cover as the sleeve, tape halfway out. It slides in the video."),
+        // Named for what it draws, not for the enum member it draws it under: the
+        // slot shipped as Cassette and its number travels in every share link and
+        // saved setting, so the member keeps the old name and the label does not.
+        new(CardTheme.Cassette, "Crate", "Cover at the front of a crate, sleeves receding behind it."),
         new(CardTheme.Review, "Review", "Framed review card with a five-star row and your caption.")
     };
 }

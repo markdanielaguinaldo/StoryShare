@@ -38,41 +38,17 @@ internal sealed class CardScene : IDisposable
     public SKImage? DecorLayer { get; init; }
 
     /// <summary>
-    /// Vector decoration drawn beneath the artwork, every frame, inside the tilt,
-    /// given the loop phase.
+    /// Vector decoration drawn beneath the artwork, every frame, inside the tilt.
     ///
     /// Anything with a hard straight edge belongs here rather than in a baked layer:
     /// a rotated bitmap is resampled, and even with linear filtering its edges soften
     /// or stair-step. Redrawing the shape under the same transform keeps it crisp,
     /// and simple geometry is cheap enough to repeat per frame.
-    ///
-    /// It takes the phase for the same reason <see cref="DrawOverArt"/> does: this is
-    /// where something that moves <em>behind</em> the artwork goes — the cassette
-    /// sliding out of its sleeve — and whatever it draws has to be back where it
-    /// started at phase 1.
     /// </summary>
-    public Action<SKCanvas, float>? DrawUnderArt { get; init; }
-
-    /// <summary>
-    /// Vector decoration drawn over the artwork every frame, given the loop phase.
-    ///
-    /// This is the way to move something other than the artwork itself — the
-    /// cassette's hubs turn while its label stays put. Whatever it draws still has
-    /// to be back where it started at phase 1, so a rotation here must be a whole
-    /// number of turns per loop, exactly as <see cref="Spin"/> is.
-    /// </summary>
-    public Action<SKCanvas, float>? DrawOverArt { get; init; }
+    public Action<SKCanvas>? DrawUnderArt { get; init; }
 
     /// <summary>Baked layer drawn over the artwork but still inside the tilt.</summary>
     public SKImage? TiltedOverlay { get; init; }
-
-    /// <summary>
-    /// Layers a style draws for itself, from <see cref="DrawUnderArt"/> or
-    /// <see cref="DrawOverArt"/>, because they move and the scene has no way to
-    /// know where to put them — the cassette's shell sliding out of its sleeve.
-    /// The scene still owns them, so they are disposed with everything else.
-    /// </summary>
-    public IReadOnlyList<SKImage>? MovingLayers { get; init; }
 
     public SKImage? ShadowLayer { get; init; }
 
@@ -88,9 +64,9 @@ internal sealed class CardScene : IDisposable
     /// <summary>
     /// Where the whole cover is drawn inside <see cref="ArtRect"/> when
     /// <see cref="ArtFill"/> is set: the largest centred box with the artwork's own
-    /// aspect. A ticket's band and a cassette's label are wide slots, and a 2:3
-    /// poster cropped into one keeps a middle strip with neither the title nor the
-    /// faces in it, which is what made those styles look mis-set.
+    /// aspect. A polaroid's print is square and a vinyl's label is a circle, and a
+    /// 2:3 poster cropped into one keeps a middle strip with neither the title nor
+    /// the faces in it.
     /// </summary>
     public SKRect ArtInner { get; private set; }
 
@@ -213,7 +189,7 @@ internal sealed class CardScene : IDisposable
         // Float slides the whole object — paper, ticket, shell and the cover inside
         // it — rather than the artwork alone, which would slide a photo out of the
         // frame that is meant to be holding it. Whole pixels only: a fractional
-        // translation resamples every baked layer, and Ticket and Cassette are baked
+        // translation resamples every baked layer, and Ticket and Crate are baked
         // precisely because their straight edges land on whole pixels.
         var drift = Drift(phase);
         var floating = drift != SKPoint.Empty;
@@ -248,7 +224,7 @@ internal sealed class CardScene : IDisposable
             canvas.DrawImage(DecorLayer, 0, 0, Card.FrameSampling);
         }
 
-        DrawUnderArt?.Invoke(canvas, phase);
+        DrawUnderArt?.Invoke(canvas);
 
         if (!ArtRect.IsEmpty && Art is not null)
         {
@@ -259,8 +235,6 @@ internal sealed class CardScene : IDisposable
         {
             DrawPulseWash(canvas, beat);
         }
-
-        DrawOverArt?.Invoke(canvas, phase);
 
         if (TiltedOverlay is not null)
         {
@@ -385,14 +359,6 @@ internal sealed class CardScene : IDisposable
         ArtClip?.Dispose();
         Art?.Dispose();
         Backdrop?.Dispose();
-
-        if (MovingLayers is not null)
-        {
-            foreach (var layer in MovingLayers)
-            {
-                layer.Dispose();
-            }
-        }
     }
 
     private void DrawBackground(SKCanvas canvas, float phase)

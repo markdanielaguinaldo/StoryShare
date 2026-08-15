@@ -152,7 +152,7 @@ public class StoryCardRenderer
             CardTheme.Vinyl => BuildVinyl(context),
             CardTheme.Stack => BuildStack(context),
             CardTheme.Ticket => BuildTicket(context),
-            CardTheme.Cassette => BuildCassette(context),
+            CardTheme.Cassette => BuildCrate(context),
             CardTheme.Review => BuildReview(context),
             _ => BuildClassic(theme, context)
         };
@@ -425,7 +425,7 @@ public class StoryCardRenderer
             Art = context.Art,
             ArtImage = ArtImageFor(context.Art, photoRect),
             DecorLayer = shadowLayer,
-            DrawUnderArt = (canvas, _) => DrawPaper(canvas, paperRect, photoRect, stock),
+            DrawUnderArt = canvas => DrawPaper(canvas, paperRect, photoRect, stock),
             TiltedOverlay = captionLayer,
             TextLayer = textLayer,
             ArtRect = photoRect,
@@ -1145,109 +1145,65 @@ public class StoryCardRenderer
         }
     }
 
-    // ---------------------------------------------------------------- cassette
+    // ---------------------------------------------------------------- crate
 
     /// <summary>
-    /// The cover is the sleeve, and the tape is halfway out of it. Printing the cover
-    /// on a shell's label meant a fixed landscape aspect capped it at a twentieth of
-    /// the card; a sleeve is whatever shape the thing inside it is, so the cover is
-    /// printed at its own proportions and at the size a sleeve would really be.
+    /// The cover at the front of a crate, with sleeves receding behind it. This slot
+    /// used to draw a cassette, and the tape was never going to win: a shell is a
+    /// fixed landscape shape and the cover had to be squeezed onto a label inside it,
+    /// which is how it ended up a twentieth of the card. Sleeves in a crate are
+    /// whatever shape the covers are, so the picture stays whole and full size and
+    /// the decoration is simply the pile behind it.
+    ///
+    /// Mechanically this is Stack: cover front and centre, the rest baked into a
+    /// layer underneath. They read differently because Stack fans upward about the
+    /// bottom edge while these step sideways, the way records do when you push them
+    /// forward one at a time.
     /// </summary>
-    private CardScene BuildCassette(LayoutContext context)
+    private CardScene BuildCrate(LayoutContext context)
     {
-        const float MaxSleeveWidth = 620f;
-        const float MinSleeveHeight = 280f;
-        const float Gap = 76f;
-        const float Corner = 10f;
-        // A C-cassette shell is 100x64mm, and looking wrong here is immediately
-        // obvious to anyone who has held one.
-        const float ShellAspect = 1.5625f;
-        const float ShellWidthRatio = 0.90f;
-        const float ShellHeightRatio = 0.86f;
-        // How far out the tape sits at rest, and how much further it slides across
-        // the loop, both as a fraction of the shell's own width. The still is drawn
-        // at phase 0, so a tape that started fully inside would leave the style's
-        // whole idea out of every shared image.
-        const float PeekRatio = 0.40f;
-        const float TravelRatio = 0.14f;
-        const float FallbackAspect = 0.72f;
+        const float Gap = 84f;
+        const float Corner = 22f;
+        // The sleeves stand out to the left, so the cover gives up enough width to
+        // leave them somewhere to be. A landscape cover is the tight case: it starts
+        // at the full 900 and would otherwise push the last sleeve off the card.
+        const float ArtScale = 0.88f;
 
         var lines = BuildTextBlock(context, context.Palette, SpecFor(CardTheme.Cassette));
         var textHeight = TotalHeight(lines);
 
-        var available = context.ContentBottom() - Card.SafeTop;
-        var budget = available - Gap - textHeight;
-
-        var aspect = context.Art is null
-            ? FallbackAspect
-            : context.Art.Width / (float)context.Art.Height;
-
-        var sleeveWidth = MaxSleeveWidth;
-        var sleeveHeight = sleeveWidth / aspect;
-        if (sleeveHeight > budget)
+        var artRect = SKRect.Empty;
+        if (context.Art is not null)
         {
-            sleeveHeight = Math.Max(budget, MinSleeveHeight);
-            sleeveWidth = sleeveHeight * aspect;
+            var full = MeasureArtRect(context.Art);
+            var width = full.Width * ArtScale;
+            artRect = SKRect.Create(Card.CenterX - (width / 2f), 0, width, full.Height * ArtScale);
         }
 
-        // Narrow enough to hide behind the sleeve at rest, in both directions: a
-        // landscape cover makes for a short sleeve, and a shell taller than the thing
-        // it is supposed to be inside gives the game away.
-        var shellWidth = MathF.Min(sleeveWidth * ShellWidthRatio, sleeveHeight * ShellHeightRatio * ShellAspect);
-        var shellHeight = shellWidth / ShellAspect;
+        var available = context.ContentBottom() - Card.SafeTop;
+        var gap = artRect.IsEmpty ? 0f : Gap;
+        var totalHeight = artRect.Height + gap + textHeight;
 
-        // Whole pixels: the shell is a baked layer translated on the phase, and a
-        // fractional offset resamples it every frame.
-        var peek = MathF.Round(shellWidth * PeekRatio);
-        var travel = MathF.Round(shellWidth * TravelRatio);
+        if (!artRect.IsEmpty && totalHeight > available)
+        {
+            artRect = ShrinkToFit(artRect, available - gap - textHeight, 240f);
+            if (artRect.IsEmpty)
+            {
+                gap = 0f;
+            }
 
-        var objectHeight = context.Art is null ? shellHeight : sleeveHeight;
-        var top = MathF.Round(Card.SafeTop + Math.Max(0f, (available - (objectHeight + Gap + textHeight)) / 2f));
+            totalHeight = artRect.Height + gap + textHeight;
+        }
 
-        // Centred as a composition rather than as a rectangle. The tape is already
-        // out from behind the sleeve in the still, so centring the sleeve on its own
-        // would leave the pair sitting to the right of everything below it.
-        var span = ((sleeveWidth + shellWidth) / 2f) + peek;
-        var left = MathF.Round(Card.CenterX - (span / 2f));
+        var cursorY = Card.SafeTop + Math.Max(0f, (available - totalHeight) / 2f);
+        if (!artRect.IsEmpty)
+        {
+            artRect = MoveTo(artRect, cursorY);
+            cursorY = artRect.Bottom + gap;
+        }
 
-        var sleeveRect = context.Art is null
-            ? SKRect.Empty
-            : SKRect.Create(left, top, sleeveWidth, sleeveHeight);
-
-        // Nothing to sleeve: the tape is the whole card, centred and still.
-        var shellRect = context.Art is null
-            ? SKRect.Create(MathF.Round(Card.CenterX - (shellWidth / 2f)), top, shellWidth, shellHeight)
-            : SKRect.Create(
-                MathF.Round(left + ((sleeveWidth - shellWidth) / 2f)),
-                MathF.Round(top + ((sleeveHeight - shellHeight) / 2f)),
-                shellWidth,
-                shellHeight);
-
-        var rest = context.Art is null ? 0f : peek;
-        var slide = context.Art is null ? 0f : travel;
-
-        var labelRect = SKRect.Create(
-            shellRect.Left + (shellWidth * 0.08f),
-            shellRect.Top + (shellHeight * 0.10f),
-            shellWidth * 0.84f,
-            shellHeight * 0.30f);
-
-        var windowRect = SKRect.Create(
-            shellRect.Left + (shellWidth * 0.18f),
-            shellRect.Top + (shellHeight * 0.52f),
-            shellWidth * 0.64f,
-            shellHeight * 0.28f);
-
-        var hubRadius = windowRect.Height * 0.32f;
-        var leftHub = new SKPoint(windowRect.Left + (windowRect.Width * 0.24f), windowRect.MidY);
-        var rightHub = new SKPoint(windowRect.Left + (windowRect.Width * 0.76f), windowRect.MidY);
-
-        // Baked into a layer barely bigger than itself, because it is drawn at a
-        // different place every frame and its drop shadow is far too expensive to
-        // blur again each time. The hubs are the one part left as vectors: they turn.
-        var shellLayer = BuildShellLayer(shellRect, labelRect, windowRect, leftHub, rightHub, hubRadius, context.Palette);
-
-        var textLayer = BuildOverlayLayer(lines, top + objectHeight + Gap, Footer(context), null);
+        var crateLayer = artRect.IsEmpty ? null : BuildCrateLayer(context.Art!, artRect, context.Palette, Corner);
+        var textLayer = BuildOverlayLayer(lines, cursorY, Footer(context), null);
         Dispose(lines);
 
         return new CardScene
@@ -1255,275 +1211,85 @@ public class StoryCardRenderer
             Theme = CardTheme.Cassette,
             Palette = context.Palette,
             Art = context.Art,
-            ArtImage = ArtImageFor(context.Art, sleeveRect),
-            ShadowLayer = sleeveRect.IsEmpty ? null : BuildShadowLayer(sleeveRect, Corner),
-            MovingLayers = new[] { shellLayer },
-            // Under the artwork, because the tape comes out from behind the sleeve —
-            // and the sleeve's own shadow, drawn with the art panel, then falls across
-            // the part of the shell that is out in the open.
-            DrawUnderArt = (canvas, phase) =>
-            {
-                var offset = rest + MathF.Round(slide * (1f - MathF.Cos(2f * MathF.PI * phase)) / 2f);
-
-                canvas.Save();
-                canvas.Translate(offset, 0f);
-                canvas.DrawImage(shellLayer, shellRect.Left - Card.ShadowPad, shellRect.Top - Card.ShadowPad);
-                DrawHubs(canvas, leftHub, rightHub, hubRadius, phase, context.Palette);
-                canvas.Restore();
-            },
-            DrawOverArt = sleeveRect.IsEmpty
-                ? null
-                : (canvas, _) => DrawSleeve(canvas, sleeveRect, Corner, context.Palette),
+            ArtImage = ArtImageFor(context.Art, artRect),
+            DecorLayer = crateLayer,
+            ShadowLayer = artRect.IsEmpty ? null : BuildShadowLayer(artRect, Corner),
             TextLayer = textLayer,
-            ArtRect = sleeveRect,
-            ArtCorner = Corner,
-            ArtBorder = false
+            ArtRect = artRect,
+            ArtCorner = Corner
         };
     }
 
     /// <summary>
-    /// The sleeve's own edges, printed over the cover: a folded spine down the left
-    /// and the open mouth on the right, which is the edge the tape comes out of.
-    /// Without them the cover is a picture with a cassette lying behind it.
+    /// The sleeves behind the front one, each a little smaller than the one in front
+    /// of it and pushed further left, so what shows past the cover's edge is a run of
+    /// receding spines rather than three copies of the same picture side by side.
+    /// Baked: only the face-up cover animates.
     /// </summary>
-    private static void DrawSleeve(SKCanvas canvas, SKRect sleeve, float corner, Palette palette)
+    private static SKImage BuildCrateLayer(SKBitmap art, SKRect front, Palette palette, float corner)
     {
-        const float Spine = 22f;
-        const float Mouth = 34f;
-
-        using var rounded = new SKRoundRect(sleeve, corner);
-
-        canvas.Save();
-        canvas.ClipRoundRect(rounded, antialias: true);
-
-        // The fold is dark in its crease and catches the light coming off it.
-        using (var crease = new SKPaint
+        // Farthest first, and dimmest. Both numbers are fractions of the cover's own
+        // width, so the crate looks the same depth whether the cover came out 587
+        // wide or 792.
+        var crate = new[]
         {
-            Shader = SKShader.CreateLinearGradient(
-                new SKPoint(sleeve.Left, 0f),
-                new SKPoint(sleeve.Left + Spine, 0f),
-                new[]
-                {
-                    new SKColor(0, 0, 0, 150),
-                    new SKColor(0, 0, 0, 30),
-                    new SKColor(255, 255, 255, 26)
-                },
-                new[] { 0f, 0.72f, 1f },
-                SKShaderTileMode.Clamp)
-        })
-        {
-            canvas.DrawRect(SKRect.Create(sleeve.Left, sleeve.Top, Spine, sleeve.Height), crease);
-        }
-
-        // A shadow inside the opening, so the tape reads as coming out of the sleeve
-        // rather than sliding along behind it.
-        using (var mouth = new SKPaint
-        {
-            Shader = SKShader.CreateLinearGradient(
-                new SKPoint(sleeve.Right - Mouth, 0f),
-                new SKPoint(sleeve.Right, 0f),
-                new[] { new SKColor(0, 0, 0, 0), new SKColor(0, 0, 0, 130) },
-                null,
-                SKShaderTileMode.Clamp)
-        })
-        {
-            canvas.DrawRect(SKRect.Create(sleeve.Right - Mouth, sleeve.Top, Mouth, sleeve.Height), mouth);
-        }
-
-        canvas.Restore();
-
-        using var edge = new SKPaint
-        {
-            Style = SKPaintStyle.Stroke,
-            StrokeWidth = 2f,
-            IsAntialias = true,
-            Color = palette.Accent.WithAlpha(90)
+            (Scale: 0.88f, Offset: 0.195f, Dim: (byte)175),
+            (Scale: 0.94f, Offset: 0.105f, Dim: (byte)95)
         };
-        canvas.DrawRoundRect(rounded, edge);
-    }
-
-    /// <summary>
-    /// The tape itself: shell, blank label, window and the wound packs behind it,
-    /// baked at its own size rather than across the card, because it moves.
-    /// Everything is laid out in card coordinates and the layer is offset to suit,
-    /// so the caller can go on thinking in the same numbers it used to place it.
-    /// </summary>
-    private static SKImage BuildShellLayer(
-        SKRect body,
-        SKRect label,
-        SKRect window,
-        SKPoint leftHub,
-        SKPoint rightHub,
-        float hubRadius,
-        Palette palette)
-    {
-        const float Corner = 14f;
-
-        var width = (int)MathF.Ceiling(body.Width + (Card.ShadowPad * 2f));
-        var height = (int)MathF.Ceiling(body.Height + (Card.ShadowPad * 2f));
 
         using var surface = SKSurface.Create(
-            new SKImageInfo(width, height, SKColorType.Rgba8888, SKAlphaType.Premul));
+            new SKImageInfo(Card.Width, Card.Height, SKColorType.Rgba8888, SKAlphaType.Premul));
         var canvas = surface.Canvas;
         canvas.Clear(SKColors.Transparent);
-        canvas.Translate(Card.ShadowPad - body.Left, Card.ShadowPad - body.Top);
 
-        using var shell = new SKRoundRect(body, Corner);
+        using var image = SKImage.FromBitmap(art);
 
-        using (var shadow = new SKPaint
+        foreach (var sleeve in crate)
         {
-            IsAntialias = true,
-            Color = new SKColor(0, 0, 0, 190),
-            ImageFilter = SKImageFilter.CreateDropShadowOnly(0, 24f, 32f, 32f, new SKColor(0, 0, 0, 190))
-        })
-        {
-            canvas.DrawRoundRect(shell, shadow);
-        }
+            var width = front.Width * sleeve.Scale;
+            var height = front.Height * sleeve.Scale;
+            var rect = SKRect.Create(
+                front.MidX - (width / 2f) - (front.Width * sleeve.Offset),
+                front.MidY - (height / 2f),
+                width,
+                height);
 
-        // Smoked plastic, tinted towards the accent so the shell picks up the
-        // artwork's colour the way every other style does.
-        using (var plastic = new SKPaint
-        {
-            IsAntialias = true,
-            Shader = SKShader.CreateLinearGradient(
-                new SKPoint(body.Left, body.Top),
-                new SKPoint(body.Right, body.Bottom),
-                new[]
-                {
-                    ColorMath.Lerp(new SKColor(0x2A, 0x2C, 0x33), palette.Accent, 0.22f),
-                    new SKColor(0x14, 0x15, 0x1A)
-                },
-                null,
-                SKShaderTileMode.Clamp)
-        })
-        {
-            canvas.DrawRoundRect(shell, plastic);
-        }
+            using var rounded = new SKRoundRect(rect, corner);
 
-        using (var edge = new SKPaint
-        {
-            Style = SKPaintStyle.Stroke,
-            StrokeWidth = 2f,
-            IsAntialias = true,
-            Color = new SKColor(255, 255, 255, 40)
-        })
-        {
-            canvas.DrawRoundRect(shell, edge);
-        }
+            using (var shadow = new SKPaint
+            {
+                IsAntialias = true,
+                Color = new SKColor(0, 0, 0, 180),
+                ImageFilter = SKImageFilter.CreateDropShadowOnly(0, 14f, 20f, 20f, new SKColor(0, 0, 0, 170))
+            })
+            {
+                canvas.DrawRoundRect(rounded, shadow);
+            }
 
-        // The label is left blank and ruled. Nothing is printed on it any more — the
-        // cover is on the sleeve, where it is four times the size — and ruled paper is
-        // what a mixtape's label looks like before anybody has written on it.
-        using (var paper = new SKPaint { IsAntialias = true, Color = new SKColor(0xE9, 0xE4, 0xD8) })
-        {
-            using var sticker = new SKRoundRect(label, 6f);
-            canvas.DrawRoundRect(sticker, paper);
-        }
+            canvas.Save();
+            canvas.ClipRoundRect(rounded, antialias: true);
+            canvas.DrawImage(image, Card.CoverSourceRect(art, rect), rect, Card.Sampling, null);
 
-        DrawLabelRules(canvas, label);
+            using (var scrim = new SKPaint { Color = new SKColor(0, 0, 0, sleeve.Dim) })
+            {
+                canvas.DrawRect(rect, scrim);
+            }
 
-        using var pane = new SKRoundRect(window, 12f);
-        using (var windowPaint = new SKPaint { IsAntialias = true, Color = new SKColor(0x0A, 0x0B, 0x0E) })
-        {
-            canvas.DrawRoundRect(pane, windowPaint);
-        }
+            canvas.Restore();
 
-        // The wound tape either side, clipped to the window — a pack wider than the
-        // opening is exactly what you see through a real shell. Static, because a
-        // reel of tape looks the same at any angle; only the hubs need to move.
-        canvas.Save();
-        canvas.ClipRoundRect(pane, antialias: true);
-
-        using (var tape = new SKPaint { IsAntialias = true, Color = new SKColor(0x3A, 0x2A, 0x22) })
-        {
-            canvas.DrawCircle(leftHub, hubRadius * 1.9f, tape);
-            canvas.DrawCircle(rightHub, hubRadius * 1.9f, tape);
-        }
-
-        canvas.Restore();
-
-        using (var screw = new SKPaint { IsAntialias = true, Color = new SKColor(255, 255, 255, 34) })
-        {
-            var inset = 26f;
-            canvas.DrawCircle(body.Left + inset, body.Top + inset, 7f, screw);
-            canvas.DrawCircle(body.Right - inset, body.Top + inset, 7f, screw);
-            canvas.DrawCircle(body.Left + inset, body.Bottom - inset, 7f, screw);
-            canvas.DrawCircle(body.Right - inset, body.Bottom - inset, 7f, screw);
+            using (var border = new SKPaint
+            {
+                Style = SKPaintStyle.Stroke,
+                StrokeWidth = 3f,
+                IsAntialias = true,
+                Color = palette.Accent.WithAlpha(80)
+            })
+            {
+                canvas.DrawRoundRect(rounded, border);
+            }
         }
 
         return surface.Snapshot();
-    }
-
-    /// <summary>
-    /// The lines a mixtape's track list gets written on. Blank paper on the shell
-    /// looks like something failed to draw; ruled paper looks like a cassette nobody
-    /// has filled in yet.
-    /// </summary>
-    private static void DrawLabelRules(SKCanvas canvas, SKRect label)
-    {
-        const int Rules = 3;
-        const float Inset = 18f;
-
-        using var rule = new SKPaint
-        {
-            Style = SKPaintStyle.Stroke,
-            StrokeWidth = 2f,
-            IsAntialias = true,
-            Color = new SKColor(0x8C, 0x86, 0x78, 120)
-        };
-
-        var span = label.Height * 0.62f;
-        var step = span / (Rules - 1);
-        var first = label.MidY - (span / 2f);
-
-        for (var i = 0; i < Rules; i++)
-        {
-            var y = first + (i * step);
-            canvas.DrawLine(label.Left + Inset, y, label.Right - Inset, y, rule);
-        }
-    }
-
-    /// <summary>The two toothed hubs, turning a whole revolution across the loop.</summary>
-    private static void DrawHubs(
-        SKCanvas canvas,
-        SKPoint left,
-        SKPoint right,
-        float radius,
-        float phase,
-        Palette palette)
-    {
-        const int Teeth = 6;
-
-        using var hub = new SKPaint { IsAntialias = true, Color = new SKColor(0xD8, 0xD8, 0xDC) };
-        using var tooth = new SKPaint { IsAntialias = true, Color = new SKColor(0x1A, 0x1B, 0x20) };
-        using var rim = new SKPaint
-        {
-            Style = SKPaintStyle.Stroke,
-            StrokeWidth = 3f,
-            IsAntialias = true,
-            Color = palette.Accent.WithAlpha(150)
-        };
-
-        foreach (var center in new[] { left, right })
-        {
-            canvas.Save();
-            canvas.RotateDegrees(360f * phase, center.X, center.Y);
-
-            canvas.DrawCircle(center, radius, hub);
-
-            for (var i = 0; i < Teeth; i++)
-            {
-                var angle = i * 2f * MathF.PI / Teeth;
-                canvas.DrawCircle(
-                    center.X + (radius * 0.62f * MathF.Cos(angle)),
-                    center.Y + (radius * 0.62f * MathF.Sin(angle)),
-                    radius * 0.20f,
-                    tooth);
-            }
-
-            canvas.DrawCircle(center, radius, rim);
-            canvas.Restore();
-        }
     }
 
     // ---------------------------------------------------------------- review

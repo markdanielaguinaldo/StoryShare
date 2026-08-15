@@ -66,11 +66,11 @@ await Save("longtitle-poster", longTitle, new StoryCardOptions { Theme = CardThe
 await Save("longtitle-stack", longTitle, new StoryCardOptions { Theme = CardTheme.Stack });
 await Save("longtitle-polaroid", longTitle, new StoryCardOptions { Theme = CardTheme.Polaroid, Comment = "a very long comment that has to wrap onto more than one line to be worth testing at all" });
 await Save("longtitle-ticket", longTitle, new StoryCardOptions { Theme = CardTheme.Ticket });
-await Save("music-cassette", track, new StoryCardOptions { Theme = CardTheme.Cassette });
-// Both directions of the cover fitting, which only kicks in when the artwork and
-// the window it goes in are too different in shape to crop between: a 2:3 poster
-// in a cassette's wide label, and a square cover in a ticket's landscape band.
-await Save("cassette-poster", movie, new StoryCardOptions { Theme = CardTheme.Cassette });
+// Crate draws the cover at its own shape, so a square one and a 2:3 one splay
+// differently behind the front sleeve and both are worth a look.
+await Save("music-crate", track, new StoryCardOptions { Theme = CardTheme.Cassette });
+await Save("longtitle-crate", longTitle, new StoryCardOptions { Theme = CardTheme.Cassette });
+// A square cover in the ticket's billboard is the hardest crop it has to make.
 await Save("ticket-cover", track, new StoryCardOptions { Theme = CardTheme.Ticket });
 await Save("ticket-comment", movie, new StoryCardOptions { Theme = CardTheme.Ticket, Comment = "best thing I have seen all year" });
 
@@ -114,7 +114,7 @@ await Save("bg-nonsense", movie, new StoryCardOptions { Theme = CardTheme.Minima
 await Save("bg-paper-ticket", movie, new StoryCardOptions { Theme = CardTheme.Ticket, Background = "paper" });
 await Save("bg-royal-ticket", movie, new StoryCardOptions { Theme = CardTheme.Ticket, Background = "royal" });
 await Save("bg-paper-review", movie, new StoryCardOptions { Theme = CardTheme.Review, Background = "paper", Comment = "dark type on pale stock" });
-await Save("bg-teal-cassette", track, new StoryCardOptions { Theme = CardTheme.Cassette, Background = "teal" });
+await Save("bg-teal-crate", track, new StoryCardOptions { Theme = CardTheme.Cassette, Background = "teal" });
 
 // A per-render footer override has to get the same placeholder treatment the
 // configured one does, and an empty footer still has to hide it entirely.
@@ -188,31 +188,11 @@ Console.WriteLine($"vinyl seam step (want <= a step)   : {spinSeam:F2}");
 Console.WriteLine($"vinyl loop closes cleanly          : {spinHalf > 1 && spinSeam < spinStep * 1.5}");
 Console.WriteLine($"vinyl spin slower than before      : {rpm < 30d}");
 
-// Cassette moves something that is not the artwork: its hubs turn once per loop
-// while the label stays put. Same seam rule as Vinyl — a rotation is a whole step
-// short of home at the last frame by design, so what must hold is that the seam
-// step is no larger than an ordinary one.
-var tapeSpec = Jellyfin.Plugin.StoryShare.Models.AnimationSpec.For(CardTheme.Cassette);
-var tapeRaw = new MemoryStream();
-await renderer.RenderFramesAsync(track, new StoryCardOptions { Theme = CardTheme.Cassette }, tapeSpec, tapeRaw, CancellationToken.None);
-buffer = tapeRaw.ToArray();
-
-var tapeStep = MeanDiff(0, 1);
-var tapeSeam = MeanDiff(tapeSpec.FrameCount - 1, 0);
-var tapeHalf = MeanDiff(0, tapeSpec.FrameCount / 2);
-// Motion is measured against a frame step rather than the absolute floor the other
-// styles use: only the two hubs move here, and they are a few percent of the frame,
-// so a whole-frame mean can never reach the same number however well it animates.
-Console.WriteLine($"cassette half-loop diff             : {tapeHalf:F2}");
-Console.WriteLine($"cassette per-frame step            : {tapeStep:F2}");
-Console.WriteLine($"cassette seam step (want <= a step) : {tapeSeam:F2}");
-Console.WriteLine($"cassette hubs actually turn        : {tapeHalf > tapeStep * 3}");
-Console.WriteLine($"cassette loop closes cleanly       : {tapeSeam < tapeStep * 1.5}");
-
-// The chosen animations replace the push-in with movement of their own, and each
-// one still has to meet itself at the seam. Measured the way Vinyl and Cassette
-// are: the last frame is one step short of home by construction, so what has to
-// hold is that the seam is no bigger than an ordinary step.
+// The chosen animations replace the push-in with movement of their own, and each one
+// still has to meet itself at the seam. Measured the way Vinyl's spin is: the last
+// frame is one step short of home by construction, so what has to hold is that the
+// seam is no bigger than an ordinary step.
+//
 // Run against more than one style: Full bleed has no panel sitting on a background
 // the way Ticket does, and for a long time that meant Float, Pulse and Auto all
 // produced exactly the same video — a test that only ever looked at Ticket had no

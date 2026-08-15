@@ -31,7 +31,7 @@
             { value: 4, label: 'Vinyl' },
             { value: 5, label: 'Stack' },
             { value: 6, label: 'Ticket' },
-            { value: 7, label: 'Cassette' },
+            { value: 7, label: 'Crate' },
             { value: 8, label: 'Review' }
         ],
         backgrounds: [],

@@ -81,7 +81,7 @@ in the plugin settings:
 | **Vinyl** | Cover cut into a record — grooves, label ring and spindle hole. Spins in the video, at 10 rpm. |
 | **Stack** | Cover fanned out as a pile of cards, the front one face up and in focus. |
 | **Ticket** | Cinema stub: the cover printed as a billboard across the full width of the ticket's head, a perforated tear across the bottom and *admit one* printed on the torn-off part. |
-| **Cassette** | Cover as the sleeve, with the tape halfway out of it. The shell slides further out across the video and its hubs turn as it goes. |
+| **Crate** | Cover at the front of a crate, two sleeves receding behind it and stepping out to the left, the way records do when you push them forward one at a time. |
 | **Review** | Framed card, poster small, with a five-star row and your caption set as the review itself. |
 
 The accent colour — chip outlines, the footer dot, the record's rim, the edges of the
@@ -103,12 +103,10 @@ circle, and a fitted rectangle turning behind a round hole is not a record.
 The bed is baked once at build time; only the push-in moves per frame, and the cover
 is fitted with a margin so it grows into that instead of being clipped by it.
 
-**Full bleed, Ticket and Cassette avoid the question entirely.** Full bleed and Ticket
-mean *the picture is the surface*, so they always crop to fill — a whole cover set on a
-blurred bed is exactly the look they exist to avoid — and the crop is biased towards the
-top of the frame, which is where a poster keeps its faces. Cassette cuts the window to
-the cover instead: a sleeve is whatever shape the thing inside it is, so the cover is
-printed at its own proportions and nothing has to be fitted at all.
+**Full bleed and Ticket avoid the question entirely.** Both mean *the picture is the
+surface*, so they always crop to fill — a whole cover set on a blurred bed is exactly
+the look they exist to avoid — and the crop is biased towards the top of the frame,
+which is where a poster keeps its faces.
 
 ### The footer line
 
@@ -138,7 +136,7 @@ the default for new cards.
 
 What the background does depends on the style:
 
-- **Minimal, Vinyl, Stack, Cassette, Review** paint it directly.
+- **Minimal, Vinyl, Stack, Crate, Review** paint it directly.
 - **Polaroid** and **Ticket** paint *the card stock itself* with it, lifted 18% towards
   white so it still reads as paper rather than a flat swatch, and push the surround 60%
   darker so the card still stands off it. "Match the artwork" keeps the classic white
@@ -169,7 +167,7 @@ rest whatever is selected and every option would render the identical image.
 
 | Animation | What moves |
 | --- | --- |
-| **Auto** | The style's own movement: a slow push-in on the cover, a blurred backdrop drifting the other way for parallax, and a light sweep crossing the artwork once per loop. Vinyl spins; Cassette slides its tape out of the sleeve and turns the hubs as it goes. |
+| **Auto** | The style's own movement: a slow push-in on the cover, a blurred backdrop drifting the other way for parallax, and a light sweep crossing the artwork once per loop. Vinyl spins. |
 | **Float** | The whole card — paper, ticket, shell and the cover inside it — drifts through a figure of eight while the background and the text stay put. |
 | **Pulse** | Two beats per loop: the artwork swells and a wash of accent light breathes behind the card. |
 
@@ -229,13 +227,8 @@ runs on its own `AnimationSpec` — 144 frames at 24 fps, a 6 second loop played
 which puts it at 10 rpm and costs roughly 17 s of drawing against 7 s for every other
 style. Changing the speed means changing the loop length, in `AnimationSpec.Spin`.
 
-**Cassette turns its hubs instead of its artwork**, which is the same rule applied to
-something that is not the cover: a label that spun would be nonsense, so the two hubs
-rotate exactly one turn per loop while everything else does the ordinary push-in. The
-harness checks it the way it checks Vinyl — the seam has to be no bigger a step than
-any other frame — but measures the motion relative to a frame step rather than against
-an absolute floor, because two hubs are a few percent of the frame and a whole-frame
-mean could never reach the number the other styles hit.
+Every other style does the ordinary push-in, which is driven by a cosine and therefore
+lands back where it started without anyone having to think about it.
 
 ---
 
@@ -438,8 +431,8 @@ dotnet run --project tests/StoryShare.DevHarness
 It writes the cards to `tests/StoryShare.DevHarness/bin/Release/net9.0/out/` and exits
 non-zero if a token test fails. It covers every style with and without artwork, the
 pale presets, a raw hex background, both directions of the cover fitting, and every
-animation loop — the ordinary push-in, Vinyl's spin, Cassette's sliding tape, plus
-Float and Pulse across three different styles. Each loop is checked for a seam no
+animation loop — the ordinary push-in, Vinyl's spin, plus Float and Pulse across three
+different styles. Each loop is checked for a seam no
 bigger than an ordinary frame step, for moving at all, and for leaving the still image
 untouched. Running the last of those against more than one style is the point: Full
 bleed's animations were dead for months, and a test that only ever looked at Ticket had
