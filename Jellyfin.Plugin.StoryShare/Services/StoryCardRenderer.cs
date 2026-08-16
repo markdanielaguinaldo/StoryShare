@@ -317,8 +317,8 @@ public class StoryCardRenderer
     }
 
     /// <summary>
-    /// Everything printed over the picture, in one layer: the mark hard into the top
-    /// left corner, and the stack of type up the bottom left with the now-playing line
+    /// Everything printed over the picture, in one layer: the mark up in the top
+    /// left, and the stack of type up the bottom left with the now-playing line
     /// along the very bottom, both on the same margin. Baked rather than drawn per
     /// frame, and drawn outside the tilt and the drift, so Float slides the picture
     /// underneath while the words stay exactly where they were set.
@@ -530,30 +530,31 @@ public class StoryCardRenderer
         canvas.DrawRect(full, top);
     }
 
-    private const float BleedLogoHeight = 220f;
+    private const float BleedLogoHeight = 150f;
 
-    // Nearly the full width the type gets. A lockup is mostly wordmark, so it has to
-    // be allowed to run wide before the height cap is the thing holding it back.
-    private const float BleedLogoMaxWidth = 820f;
+    // Well short of the width the type gets. A lockup is mostly wordmark, so it has to
+    // be allowed to run wider than it is tall — but a mark that reaches the far margin
+    // competes with the picture instead of signing it.
+    private const float BleedLogoMaxWidth = 560f;
 
     /// <summary>
-    /// Where the mark sits: hard into the top left corner, so a logo bleeds off both
-    /// edges the way the picture under it does. It is deliberately outside the safe
-    /// band every other element respects — Instagram lays its own chrome across this
-    /// strip, so a mark up here can be partly covered while the story is being viewed.
-    /// That is the trade the corner asks for.
+    /// Where the mark sits: into the top left corner, but off the very edge. Flush to
+    /// the top read as crowded against it rather than bled off it, and this strip is
+    /// also where Instagram lays its own chrome, so the drop buys the mark a little
+    /// clearance from that too. Still deliberately above the safe band every other
+    /// element respects — the whole bottom of the card belongs to the type.
     /// </summary>
-    private const float BleedBrandTop = 0f;
+    private const float BleedBrandTop = 46f;
 
     /// <summary>
     /// Type cannot sit on the canvas edge the way a picture can — glyphs touching it
-    /// read as clipped rather than as bled — so the wordmark keeps this much air and
-    /// only the logo goes truly flush.
+    /// read as clipped rather than as bled — so the wordmark keeps this much air on
+    /// the left and only the logo goes truly flush to that edge.
     /// </summary>
     private const float BleedWordmarkInset = 30f;
 
     /// <summary>
-    /// The mark in the top left corner, with the whole bottom of the card left to the
+    /// The mark up in the top left, with the whole bottom of the card left to the
     /// type. A configured logo is drawn on its own — a lockup already says whose server
     /// this is — and without one the wordmark is set as type instead, so the corner is
     /// never empty.
@@ -595,10 +596,13 @@ public class StoryCardRenderer
             ImageFilter = BleedTextShadow(palette, 8f)
         };
 
+        // Vertically off `top` alone, which already carries the air the mark keeps from
+        // the edge: adding the left inset on this axis too would push the wordmark half
+        // again further down than the logo it stands in for.
         canvas.DrawText(
-            "Shared with", BleedWordmarkInset, top + BleedWordmarkInset + 26f, SKTextAlign.Left, small, muted);
+            "Shared with", BleedWordmarkInset, top + 26f, SKTextAlign.Left, small, muted);
         canvas.DrawText(
-            "Story Share", BleedWordmarkInset, top + BleedWordmarkInset + 80f, SKTextAlign.Left, large, strong);
+            "Story Share", BleedWordmarkInset, top + 80f, SKTextAlign.Left, large, strong);
     }
 
     /// <summary>
