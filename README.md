@@ -23,6 +23,35 @@ item's own tagline in as the caption. [Full-quality MP4](docs/demo.mp4).*
 
 ---
 
+## Sample cards
+
+Three cards straight out of the plugin, rendered from a real library at the full
+1080×1920 — nothing retouched, nothing cropped. Click one for the original file.
+
+<table>
+<tr>
+<td width="33%" valign="top"><a href="docs/samples/review.jpg"><img src="docs/samples/review.jpg" alt="Review style: The Penguin, its poster set small inside a bracketed frame above a five-star row"></a></td>
+<td width="33%" valign="top"><a href="docs/samples/stack.jpg"><img src="docs/samples/stack.jpg" alt="Stack style: That Time I Got Reincarnated as a Slime, the cover fanned out over two more cards"></a></td>
+<td width="33%" valign="top"><a href="docs/samples/fullbleed-pulse.mp4"><img src="docs/samples/fullbleed-pulse.gif" alt="Full bleed style animated with Pulse: Exit 8, the picture printed to every edge with the title, tagline and facts set against the bottom left"></a></td>
+</tr>
+<tr>
+<td valign="top"><b>Review</b>, on a background matched to the artwork — the red is the
+poster's own, pulled out of it and carried by the frame's corners, the footer dot and
+the stars.</td>
+<td valign="top"><b>Stack</b>, again on a matched background. The front cover is face up
+and in focus; the two behind it are the same image dimmed and stepped back.</td>
+<td valign="top"><b>Full bleed</b> as video, with the <b>Pulse</b> animation and a brand
+logo set in the top left corner. The caption is the item's own tagline, dropped in from
+the dialog. <a href="docs/samples/fullbleed-pulse.mp4">Full-quality MP4</a>.</td>
+</tr>
+</table>
+
+The line along the bottom of each is the footer, and it reads *Project Mark* here
+because that is the name of the server they were rendered on — `{server}` expands to
+whatever yours is called.
+
+---
+
 ![Card styles rendered with placeholder artwork](docs/themes.png)
 
 *Layout preview rendered with placeholder artwork — real cards use your library's posters and covers.*
