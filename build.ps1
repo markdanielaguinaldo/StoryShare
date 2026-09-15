@@ -9,7 +9,7 @@
 [CmdletBinding()]
 param(
     [string]$Version = '1.0.0.0',
-    [string]$TargetAbi = '10.11.0.0',
+    [string]$TargetAbi = '12.1.0.0',
     [string]$Configuration = 'Release',
     [string]$RepoUrl = 'https://github.com/markdanielaguinaldo/StoryShare',
     [string]$Changelog = '',
@@ -70,7 +70,7 @@ $meta = [ordered]@{
     category    = 'General'
     version     = $Version
     targetAbi   = $TargetAbi
-    framework   = 'net9.0'
+    framework   = 'net10.0'
     # Relative to the plugin's own folder, which is what the server serves it from.
     imagePath   = 'logo.png'
     timestamp   = (Get-Date).ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ')

@@ -8,6 +8,14 @@
         "category":  "General",
         "versions":  [
                          {
+                             "version":  "1.3.2.0",
+                             "changelog":  "Fix Jellyfin 12 authorization and target the Jellyfin 12.1 runtime.",
+                             "targetAbi":  "12.1.0.0",
+                             "sourceUrl":  "https://github.com/markdanielaguinaldo/StoryShare/releases/download/v1.3.2.0/storyshare_1.3.2.0.zip",
+                             "checksum":  "5510ec2cc5944c74e9139d8c866f44b9",
+                             "timestamp":  "2026-09-15T02:42:51Z"
+                         },
+                         {
                              "version":  "1.3.1.0",
                              "changelog":  "Full bleed: the brand mark is smaller and drops a little clear of the top edge, so it signs the card instead of competing with the picture.",
                              "targetAbi":  "10.11.0.0",
