@@ -37,7 +37,7 @@ public static class CardThemes
     {
         new(CardTheme.Poster, "Poster", "Cover on a blurred version of its own artwork."),
         new(CardTheme.FullBleed, "Full bleed", "The cover printed edge to edge, text along the bottom."),
-        new(CardTheme.Minimal, "Minimal", "Flat background, no photographic backdrop."),
+        new(CardTheme.VibeMeter, "Vibe Meter", "Five playful meters derived from the item's metadata."),
         new(CardTheme.Polaroid, "Polaroid", "Cover in a tilted paper frame with the caption underneath."),
         new(CardTheme.Vinyl, "Vinyl", "Cover cut into a record, grooves and all. Spins in the video."),
         new(CardTheme.Stack, "Stack", "Cover fanned out as a pile of cards, the front one face up."),

@@ -168,7 +168,9 @@ public sealed class CardCache
         string? comment,
         string? background,
         CardAnimation? animation,
-        string format)
+        string format,
+        IReadOnlyList<int>? vibeValues = null,
+        bool? animateVibe = null)
     {
         var config = Config;
 
@@ -191,7 +193,9 @@ public sealed class CardCache
             .Append('|').Append(config.ShowYear)
             .Append(config.ShowGenres)
             .Append(config.ShowRating)
-            .Append(config.ShowRuntime);
+            .Append(config.ShowRuntime)
+            .Append("|vibe=").Append(vibeValues is null ? string.Empty : string.Join(',', vibeValues))
+            .Append("|vibeAnimate=").Append(animateVibe?.ToString() ?? "default");
 
         // Hashed so a 180-character caption does not become a 200-byte dictionary key.
         var hash = SHA256.HashData(Encoding.UTF8.GetBytes(builder.ToString()));

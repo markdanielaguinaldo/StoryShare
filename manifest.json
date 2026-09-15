@@ -9,11 +9,35 @@
         "versions":  [
                          {
                              "version":  "1.4.1",
-                             "changelog":  "Targets Jellyfin 12.1 on .NET 10 and uses the standard Authorization header for Story Share requests.",
+                             "changelog":  "Targets Jellyfin 12.1 on .NET 10, adds Vibe Meter cards, and uses the standard Authorization header for Story Share requests.",
                              "targetAbi":  "12.1.0.0",
                              "sourceUrl":  "https://github.com/markdanielaguinaldo/StoryShare/releases/download/v1.4.1/storyshare_1.4.1.zip",
-                             "checksum":  "d0a5d845c3bb6f4f8a1c429bbfe81c82",
-                             "timestamp":  "2026-09-15T14:26:01Z"
+                             "checksum":  "15fb3b0afc590a937b9fb945ddf59393",
+                             "timestamp":  "2026-09-15T14:28:22Z"
+                         },
+                         {
+                             "version":  "1.4.1.0",
+                             "changelog":  "",
+                             "targetAbi":  "12.1.0.0",
+                             "sourceUrl":  "https://github.com/markdanielaguinaldo/StoryShare/releases/download/v1.4.1.0/storyshare_1.4.1.0.zip",
+                             "checksum":  "1440c5db0333591ff01be08f0663c0ec",
+                             "timestamp":  "2026-09-15T12:31:41Z"
+                         },
+                         {
+                             "version":  "1.4.0.0",
+                             "changelog":  "Replace Minimal with Vibe Meter: deterministic metadata-driven scores and animated meter fills.",
+                             "targetAbi":  "12.1.0.0",
+                             "sourceUrl":  "https://github.com/markdanielaguinaldo/StoryShare/releases/download/v1.4.0.0/storyshare_1.4.0.0.zip",
+                             "checksum":  "b4349d46e533d3fb27597e80bb6429e2",
+                             "timestamp":  "2026-09-15T03:11:53Z"
+                         },
+                         {
+                             "version":  "1.3.2.0",
+                             "changelog":  "Fix Jellyfin 12 authorization and target the Jellyfin 12.1 runtime.",
+                             "targetAbi":  "12.1.0.0",
+                             "sourceUrl":  "https://github.com/markdanielaguinaldo/StoryShare/releases/download/v1.3.2.0/storyshare_1.3.2.0.zip",
+                             "checksum":  "5510ec2cc5944c74e9139d8c866f44b9",
+                             "timestamp":  "2026-09-15T02:42:51Z"
                          },
                          {
                              "version":  "1.3.1.0",

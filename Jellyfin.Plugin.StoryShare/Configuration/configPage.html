@@ -17,7 +17,7 @@
                     <select is="emby-select" id="Theme" name="Theme" class="emby-select-withcolor emby-select">
                         <option value="Poster">Poster — blurred artwork behind the cover</option>
                         <option value="FullBleed">Full bleed — the cover printed edge to edge</option>
-                        <option value="Minimal">Minimal — flat colour, no photographic backdrop</option>
+                        <option value="VibeMeter">Vibe Meter — playful metadata-derived scores</option>
                         <option value="Polaroid">Polaroid — cover in a tilted paper frame</option>
                         <option value="Vinyl">Vinyl — cover cut into a record, spins in the video</option>
                         <option value="Stack">Stack — cover fanned out as a pile of cards</option>
@@ -47,7 +47,7 @@
                         <option value="auto">Match the artwork</option>
                     </select>
                     <div class="fieldDescription">
-                        Minimal, Vinyl, Stack, Crate and Review paint this colour directly, and Polaroid and
+                        Vibe Meter, Vinyl, Stack, Crate and Review paint this colour directly, and Polaroid and
                         Ticket paint the card stock itself with it. Poster and Full bleed keep the item's own
                         artwork behind the card and tint it towards this colour instead.
                     </div>
@@ -192,7 +192,7 @@
             // The API serialises CardTheme by name ("Poster"), so the options above are
             // named too and the value round-trips untouched. Indexed order, because a
             // config written by an older build still holds the number.
-            var THEME_NAMES = ['Poster', 'FullBleed', 'Minimal', 'Polaroid', 'Vinyl', 'Stack',
+            var THEME_NAMES = ['Poster', 'FullBleed', 'VibeMeter', 'Polaroid', 'Vinyl', 'Stack',
                 'Ticket', 'Cassette', 'Review'];
 
             var ANIMATION_NAMES = ['Auto', 'Float', 'Pulse'];

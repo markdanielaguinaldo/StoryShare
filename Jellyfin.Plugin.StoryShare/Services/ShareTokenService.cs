@@ -18,6 +18,8 @@ public class ShareTokenService
         string? Comment,
         string? Background,
         CardAnimation? Animation,
+        IReadOnlyList<int>? VibeValues,
+        bool? AnimateVibe,
         DateTime ExpiresAt);
 
     private static PluginConfiguration Config =>
@@ -29,6 +31,17 @@ public class ShareTokenService
         string? comment,
         string? background,
         CardAnimation? animation,
+        TimeSpan lifetime) =>
+        Create(itemId, theme, comment, background, animation, null, null, lifetime);
+
+    public string Create(
+        Guid itemId,
+        CardTheme? theme,
+        string? comment,
+        string? background,
+        CardAnimation? animation,
+        IReadOnlyList<int>? vibeValues,
+        bool? animateVibe,
         TimeSpan lifetime)
     {
         var expires = DateTimeOffset.UtcNow.Add(lifetime).ToUnixTimeSeconds();
@@ -42,7 +55,9 @@ public class ShareTokenService
             Encode(Encoding.UTF8.GetBytes(comment ?? string.Empty)),
             expires.ToString(CultureInfo.InvariantCulture),
             Encode(Encoding.UTF8.GetBytes(background ?? string.Empty)),
-            animation.HasValue ? ((int)animation.Value).ToString(CultureInfo.InvariantCulture) : string.Empty);
+            animation.HasValue ? ((int)animation.Value).ToString(CultureInfo.InvariantCulture) : string.Empty,
+            Encode(Encoding.UTF8.GetBytes(vibeValues is { Count: 5 } ? string.Join(',', vibeValues) : string.Empty)),
+            animateVibe.HasValue ? (animateVibe.Value ? "1" : "0") : string.Empty);
 
         var payloadBytes = Encoding.UTF8.GetBytes(payload);
         return Encode(payloadBytes) + "." + Encode(Sign(payloadBytes));
@@ -80,7 +95,7 @@ public class ShareTokenService
         }
 
         var parts = Encoding.UTF8.GetString(payloadBytes).Split('|');
-        if (parts.Length is not (4 or 5 or 6)
+        if (parts.Length is not (4 or 5 or 6 or 7 or 8)
             || !Guid.TryParseExact(parts[0], "N", out var itemId)
             || !long.TryParse(parts[3], NumberStyles.Integer, CultureInfo.InvariantCulture, out var expiresUnix))
         {
@@ -112,18 +127,30 @@ public class ShareTokenService
 
         string? comment;
         string? background;
+        IReadOnlyList<int>? vibeValues = null;
+        bool? animateVibe = null;
         try
         {
             comment = DecodeText(parts[2]);
             background = parts.Length > 4 ? DecodeText(parts[4]) : null;
+            if (parts.Length > 6) vibeValues = ParseVibeValues(DecodeText(parts[6]));
+            if (parts.Length > 7 && parts[7] is "0" or "1") animateVibe = parts[7] == "1";
         }
         catch (FormatException)
         {
             return false;
         }
 
-        result = new ShareToken(itemId, theme, comment, background, animation, expiresAt.UtcDateTime);
+        result = new ShareToken(itemId, theme, comment, background, animation, vibeValues, animateVibe, expiresAt.UtcDateTime);
         return true;
+    }
+
+    private static IReadOnlyList<int>? ParseVibeValues(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return null;
+        var parts = value.Split(',');
+        if (parts.Length != 5 || parts.Any(part => !int.TryParse(part, NumberStyles.Integer, CultureInfo.InvariantCulture, out var number) || number is < 0 or > 100)) return null;
+        return parts.Select(part => int.Parse(part, CultureInfo.InvariantCulture)).ToArray();
     }
 
     private static byte[] Sign(byte[] payload)
