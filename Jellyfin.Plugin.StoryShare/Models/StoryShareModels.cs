@@ -14,6 +14,9 @@ public sealed record AnimationSpec(int Width, int Height, int FrameCount, double
     /// <summary>Two second loop, repeated three times.</summary>
     public static AnimationSpec Video { get; } = new(1080, 1920, 60, 30d, 3);
 
+    /// <summary>Ten-second Vibe clip; bars fill in three seconds, then hold.</summary>
+    public static AnimationSpec VibeMeter { get; } = new(1080, 1920, 300, 30d, 1);
+
     /// <summary>
     /// Vinyl's loop, six seconds of it.
     ///
@@ -44,7 +47,9 @@ public sealed record AnimationSpec(int Width, int Height, int FrameCount, double
     /// exactly once per loop, and a shorter or longer one would tear the seam.
     /// </summary>
     public static AnimationSpec For(CardTheme theme, CardAnimation animation = CardAnimation.Auto) =>
-        theme == CardTheme.Vinyl
+        theme == CardTheme.VibeMeter
+            ? VibeMeter
+            : theme == CardTheme.Vinyl
             ? Spin
             : animation is CardAnimation.Float or CardAnimation.Pulse ? Gentle : Video;
 
@@ -72,6 +77,12 @@ public class StoryCardOptions
     /// derive it from the artwork. Null falls back to the plugin config.
     /// </summary>
     public string? Background { get; set; }
+
+    /// <summary>Optional five-value override for Vibe Meter, in display order.</summary>
+    public IReadOnlyList<int>? VibeValues { get; set; }
+
+    /// <summary>Whether Vibe Meter bars should load up during video rendering.</summary>
+    public bool? AnimateVibe { get; set; }
 }
 
 /// <summary>
@@ -137,6 +148,17 @@ public class BackgroundOption
 public class CaptionSuggestionResponse
 {
     public string Tagline { get; set; } = string.Empty;
+}
+
+public class VibeMeterResponse
+{
+    public IReadOnlyList<VibeMeterValue> Values { get; set; } = Array.Empty<VibeMeterValue>();
+}
+
+public class VibeMeterValue
+{
+    public string Label { get; set; } = string.Empty;
+    public int Value { get; set; }
 }
 
 public class ShareLinkResponse

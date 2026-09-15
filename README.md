@@ -408,10 +408,11 @@ by an HMAC signature and an expiry instead.
 
 | Method | Route | Purpose |
 | --- | --- | --- |
-| `GET` | `/StoryShare/Items/{itemId}/Card?theme=&comment=&background=&animation=&format=` | Render the card |
-| `POST` | `/StoryShare/Items/{itemId}/ShareLink?theme=&comment=&background=&animation=&format=` | Mint a signed, expiring link |
+| `GET` | `/StoryShare/Items/{itemId}/Card?theme=&comment=&background=&animation=&vibe=&vibeAnimate=&format=` | Render the card |
+| `POST` | `/StoryShare/Items/{itemId}/ShareLink?theme=&comment=&background=&animation=&vibe=&vibeAnimate=&format=` | Mint a signed, expiring link |
 | `GET` | `/StoryShare/Styles` | Available styles, background presets and animations |
 | `GET` | `/StoryShare/Items/{itemId}/Caption` | The item's tagline, if it has one, for the dialog to offer |
+| `GET` | `/StoryShare/Items/{itemId}/Vibe` | The item's default Vibe Meter values |
 | `GET` | `/StoryShare/Public/{token}.jpg` | Anonymous, signature-gated card |
 
 `Styles` exists so neither the settings page nor the share dialog keeps its own copy

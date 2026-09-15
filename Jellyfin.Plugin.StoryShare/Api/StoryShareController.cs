@@ -62,6 +62,8 @@ public class StoryShareController : ControllerBase
         [FromQuery] string? comment,
         [FromQuery] string? background,
         [FromQuery] CardAnimation? animation,
+        [FromQuery] string? vibe,
+        [FromQuery] bool? vibeAnimate,
         [FromQuery] string? format,
         [FromQuery] bool download,
         CancellationToken cancellationToken)
@@ -72,7 +74,7 @@ public class StoryShareController : ControllerBase
             return NotFound();
         }
 
-        return await RenderResult(item, theme, comment, background, animation, format, download, cancellationToken)
+        return await RenderResult(item, theme, comment, background, animation, ParseVibeValues(vibe), vibeAnimate, format, download, cancellationToken)
             .ConfigureAwait(false);
     }
 
@@ -148,6 +150,18 @@ public class StoryShareController : ControllerBase
         return new CaptionSuggestionResponse { Tagline = tagline };
     }
 
+    [HttpGet("Items/{itemId}/Vibe")]
+    [Produces(MediaTypeNames.Application.Json)]
+    public ActionResult<VibeMeterResponse> GetVibeValues([FromRoute] Guid itemId)
+    {
+        var item = _libraryManager.GetItemById(itemId);
+        if (item is null) return NotFound();
+        return new VibeMeterResponse
+        {
+            Values = VibeScores.For(item).Select(score => new VibeMeterValue { Label = score.Label, Value = score.Value }).ToList()
+        };
+    }
+
     /// <summary>
     /// Mints a signed, expiring link so the card can be opened on a phone and saved
     /// from there.
@@ -160,6 +174,8 @@ public class StoryShareController : ControllerBase
         [FromQuery] string? comment,
         [FromQuery] string? background,
         [FromQuery] CardAnimation? animation,
+        [FromQuery] string? vibe,
+        [FromQuery] bool? vibeAnimate,
         [FromQuery] string? format)
     {
         var item = _libraryManager.GetItemById(itemId);
@@ -170,7 +186,7 @@ public class StoryShareController : ControllerBase
 
         var config = Config;
         var lifetime = TimeSpan.FromMinutes(Math.Clamp(config.ShareLinkLifetimeMinutes, 5, 60 * 24 * 7));
-        var token = _tokens.Create(itemId, theme, comment, background, animation, lifetime);
+        var token = _tokens.Create(itemId, theme, comment, background, animation, ParseVibeValues(vibe), vibeAnimate, lifetime);
 
         var baseUrl = ResolveBaseUrl(config);
         // The extension is what the anonymous endpoint reads the format back out of.
@@ -226,6 +242,8 @@ public class StoryShareController : ControllerBase
             share.Comment,
             share.Background,
             share.Animation,
+            share.VibeValues,
+            share.AnimateVibe,
             format,
             download,
             cancellationToken).ConfigureAwait(false);
@@ -252,6 +270,8 @@ public class StoryShareController : ControllerBase
         string? comment,
         string? background,
         CardAnimation? animation,
+        IReadOnlyList<int>? vibeValues,
+        bool? vibeAnimate,
         string? format,
         bool asAttachment,
         CancellationToken cancellationToken)
@@ -269,12 +289,14 @@ public class StoryShareController : ControllerBase
                 Theme = theme,
                 Comment = comment,
                 Background = background,
-                Animation = animation
+                Animation = animation,
+                VibeValues = vibeValues,
+                AnimateVibe = vibeAnimate
             };
 
             // The dialog previews a card and then the opened link asks for exactly
             // the same one, so this is a hit on the request that matters most.
-            var key = _cache.Key(item, theme, comment, background, animation, extension);
+            var key = _cache.Key(item, theme, comment, background, animation, extension, vibeValues, vibeAnimate);
             if (!_cache.TryGet(key, out var bytes))
             {
                 bytes = wantsVideo
@@ -303,6 +325,14 @@ public class StoryShareController : ControllerBase
             _logger.LogError(ex, "StoryShare: rendering the card for {Item} failed", item.Name);
             return StatusCode(StatusCodes.Status500InternalServerError, "Story card rendering failed. Check the server log.");
         }
+    }
+
+    private static IReadOnlyList<int>? ParseVibeValues(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return null;
+        var parts = value.Split(',');
+        if (parts.Length != 5 || parts.Any(part => !int.TryParse(part, out var number) || number is < 0 or > 100)) return null;
+        return parts.Select(int.Parse).ToArray();
     }
 
     private static string BuildFileName(string? itemName, string extension)

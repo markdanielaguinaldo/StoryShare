@@ -50,7 +50,6 @@ public class StoryCardRenderer
         CancellationToken cancellationToken)
     {
         using var scene = await BuildSceneAsync(item, options, cancellationToken).ConfigureAwait(false);
-        scene.SetVideoMode();
         using var surface = SKSurface.Create(new SKImageInfo(Card.Width, Card.Height, SKColorType.Rgba8888, SKAlphaType.Premul));
 
         scene.Draw(surface.Canvas, 0f);
@@ -77,6 +76,7 @@ public class StoryCardRenderer
         CancellationToken cancellationToken)
     {
         using var scene = await BuildSceneAsync(item, options, cancellationToken).ConfigureAwait(false);
+        scene.SetVideoMode();
 
         var info = new SKImageInfo(spec.Width, spec.Height, SKColorType.Rgba8888, SKAlphaType.Premul);
         using var surface = SKSurface.Create(info);
@@ -190,39 +190,51 @@ public class StoryCardRenderer
     private CardScene BuildVibeMeter(LayoutContext context)
     {
         const float Margin = 76f;
-        const float ArtTop = 118f;
-        const float ArtHeight = 590f;
+        const float LabelX = 150f;
+        const float BarX = 470f;
         const float RowHeight = 126f;
-        const float BarWidth = 420f;
+        const float BarWidth = 440f;
         const float BarHeight = 18f;
-        var artRect = context.Art is null ? SKRect.Empty : new SKRect(Margin, ArtTop, Card.Width - Margin, ArtTop + ArtHeight);
-        var scores = VibeScores.For(context.Item);
+        var artRect = context.Art is null ? SKRect.Empty : new SKRect(Margin, 72f, Card.Width - Margin, Card.Height * 0.5f);
+        var scores = VibeScores.For(context.Item, context.Options.VibeValues);
 
         using var surface = SKSurface.Create(new SKImageInfo(Card.Width, Card.Height, SKColorType.Rgba8888, SKAlphaType.Premul));
         var canvas = surface.Canvas;
         canvas.Clear(SKColors.Transparent);
-        using var labelFont = new SKFont(context.Bold, 34f);
-        using var verdictFont = new SKFont(context.Regular, 26f);
-        using var numberFont = new SKFont(context.Bold, 36f);
+        using var labelFont = new SKFont(context.Bold, 30f);
+        using var verdictFont = new SKFont(context.Regular, 22f);
+        using var numberFont = new SKFont(context.Bold, 32f);
         using var labelPaint = new SKPaint { Color = context.Palette.Title, IsAntialias = true };
         using var mutedPaint = new SKPaint { Color = context.Palette.Muted, IsAntialias = true };
         using var numberPaint = new SKPaint { Color = context.Palette.Accent, IsAntialias = true };
-        var startY = artRect.IsEmpty ? 260f : artRect.Bottom + 92f;
+        var startY = 1118f;
+        using (var scrim = new SKPaint
+        {
+            IsAntialias = true,
+            Shader = SKShader.CreateLinearGradient(
+                new SKPoint(0, 860f),
+                new SKPoint(0, Card.Height),
+                new[] { SKColors.Transparent, new SKColor(0, 0, 0, 210) },
+                null,
+                SKShaderTileMode.Clamp)
+        })
+        {
+            canvas.DrawRect(new SKRect(0, 760f, Card.Width, Card.Height), scrim);
+        }
         for (var i = 0; i < scores.Count; i++)
         {
             var score = scores[i];
             var y = startY + (i * RowHeight);
-            canvas.DrawText(score.Label, Margin, y, SKTextAlign.Left, labelFont, labelPaint);
+            DrawVibeBadge(canvas, i, new SKPoint(88f, y - 18f), VibeColor(i));
+            canvas.DrawText(score.Label, LabelX, y, SKTextAlign.Left, labelFont, labelPaint);
+            numberPaint.Color = VibeColor(i);
             canvas.DrawText(score.Value.ToString(), Card.Width - Margin, y, SKTextAlign.Right, numberFont, numberPaint);
-            canvas.DrawText(score.Verdict, Margin, y + 34f, SKTextAlign.Left, verdictFont, mutedPaint);
+            canvas.DrawText(score.Verdict, LabelX, y + 34f, SKTextAlign.Left, verdictFont, mutedPaint);
             using var track = new SKPaint { Color = context.Palette.ChipFill.WithAlpha(180), IsAntialias = true };
-            canvas.DrawRoundRect(new SKRoundRect(new SKRect(Margin, y + 54f, Margin + BarWidth, y + 54f + BarHeight), BarHeight / 2f), track);
-            using var fill = new SKPaint { Color = context.Palette.Accent, IsAntialias = true };
-            var filled = BarWidth * (score.Value / 100f);
-            canvas.DrawRoundRect(new SKRoundRect(new SKRect(Margin, y + 54f, Margin + filled, y + 54f + BarHeight), BarHeight / 2f), fill);
+            canvas.DrawRoundRect(new SKRoundRect(new SKRect(BarX, y - 26f, BarX + BarWidth, y - 26f + BarHeight), BarHeight / 2f), track);
         }
 
-        using var footerLayer = BuildOverlayLayer(Array.Empty<IStoryLine>(), 0f, Footer(context), null);
+        using var footerLayer = BuildOverlayLayer(Array.Empty<IStoryLine>(), 0f, Footer(context), null, 1800f);
         var textLayer = OverlayLayers(surface.Snapshot(), footerLayer);
         return new CardScene
         {
@@ -234,19 +246,102 @@ public class StoryCardRenderer
             ArtImage = ArtImageFor(context.Art, artRect),
             ShadowLayer = artRect.IsEmpty ? null : BuildShadowLayer(artRect, 28f),
             ArtRect = artRect,
-            DrawDynamicOverlay = (target, progress) => DrawVibeFills(target, scores, Margin, startY, RowHeight, BarWidth, BarHeight, context.Palette, progress)
+            FillWindow = true,
+            ArtBorder = true,
+            Sweep = false,
+            AnimateArtwork = true,
+            ContainArtwork = true,
+            MeterFillFraction = 0.3f,
+            DrawDynamicOverlay = (target, progress) => DrawVibeFills(target, scores, BarX, startY, RowHeight, BarWidth, BarHeight, context.Palette, context.Options.AnimateVibe is false ? 1f : progress)
         };
+    }
+
+    private static SKColor VibeColor(int index) => index switch
+    {
+        0 => new SKColor(0xFF, 0x5A, 0x4F),
+        1 => new SKColor(0x32, 0xA8, 0xFF),
+        2 => new SKColor(0xFF, 0xC6, 0x4D),
+        3 => new SKColor(0x9B, 0x6B, 0xFF),
+        _ => new SKColor(0x52, 0xD6, 0x7A)
+    };
+
+    private static void DrawVibeBadge(SKCanvas canvas, int index, SKPoint center, SKColor color)
+    {
+        using var paint = new SKPaint { Color = color, IsAntialias = true, Style = SKPaintStyle.Fill };
+        switch (index)
+        {
+            case 0:
+                using (var flame = new SKPath())
+                {
+                    flame.MoveTo(center.X, center.Y - 24f);
+                    flame.CubicTo(center.X - 25f, center.Y - 2f, center.X - 18f, center.Y + 22f, center.X, center.Y + 25f);
+                    flame.CubicTo(center.X + 19f, center.Y + 18f, center.X + 22f, center.Y - 2f, center.X + 5f, center.Y - 13f);
+                    flame.CubicTo(center.X + 7f, center.Y - 1f, center.X + 1f, center.Y + 4f, center.X - 4f, center.Y + 7f);
+                    flame.CubicTo(center.X - 8f, center.Y - 1f, center.X - 4f, center.Y - 10f, center.X, center.Y - 24f);
+                    flame.Close();
+                    canvas.DrawPath(flame, paint);
+                }
+                break;
+            case 1:
+                using (var tear = new SKPath())
+                {
+                    tear.MoveTo(center.X, center.Y - 26f);
+                    tear.CubicTo(center.X - 22f, center.Y + 1f, center.X - 19f, center.Y + 23f, center.X, center.Y + 25f);
+                    tear.CubicTo(center.X + 19f, center.Y + 23f, center.X + 22f, center.Y + 1f, center.X, center.Y - 26f);
+                    tear.Close();
+                    canvas.DrawPath(tear, paint);
+                }
+                break;
+            case 2:
+                canvas.DrawRoundRect(new SKRoundRect(new SKRect(center.X - 18f, center.Y - 8f, center.X + 18f, center.Y + 23f), 5f), paint);
+                canvas.DrawRect(new SKRect(center.X - 22f, center.Y - 12f, center.X + 22f, center.Y - 5f), paint);
+                for (var i = -2; i <= 2; i++) canvas.DrawCircle(center.X + (i * 8f), center.Y - 17f - (Math.Abs(i) % 2 * 4f), 7f, paint);
+                break;
+            case 3:
+                canvas.DrawRect(new SKRect(center.X - 23f, center.Y - 17f, center.X + 23f, center.Y + 17f), paint);
+                using (var blade = new SKPaint { Color = SKColors.White.WithAlpha(180), StrokeWidth = 3f, IsAntialias = true })
+                {
+                    canvas.DrawLine(center.X - 18f, center.Y + 11f, center.X - 5f, center.Y - 11f, blade);
+                    canvas.DrawLine(center.X - 2f, center.Y + 11f, center.X + 11f, center.Y - 11f, blade);
+                }
+                break;
+            default:
+                canvas.DrawRoundRect(new SKRoundRect(new SKRect(center.X - 24f, center.Y - 10f, center.X + 24f, center.Y + 18f), 8f), paint);
+                canvas.DrawRoundRect(new SKRoundRect(new SKRect(center.X - 32f, center.Y - 3f, center.X - 20f, center.Y + 15f), 5f), paint);
+                canvas.DrawRoundRect(new SKRoundRect(new SKRect(center.X + 20f, center.Y - 3f, center.X + 32f, center.Y + 15f), 5f), paint);
+                canvas.DrawLine(center.X - 13f, center.Y + 20f, center.X - 20f, center.Y + 29f, paint);
+                canvas.DrawLine(center.X + 13f, center.Y + 20f, center.X + 20f, center.Y + 29f, paint);
+                break;
+        }
     }
 
     private static void DrawVibeFills(SKCanvas canvas, IReadOnlyList<VibeScore> scores, float x, float startY, float rowHeight, float width, float height, Palette palette, float progress)
     {
-        using var paint = new SKPaint { Color = palette.Accent, IsAntialias = true };
+        using var glow = new SKPaint
+        {
+            Color = palette.Accent.WithAlpha(190),
+            IsAntialias = true,
+            ImageFilter = SKImageFilter.CreateBlur(12f, 12f)
+        };
+        using var highlight = new SKPaint
+        {
+            Style = SKPaintStyle.Stroke,
+            StrokeWidth = 2f,
+            Color = SKColors.White.WithAlpha(115),
+            IsAntialias = true
+        };
         for (var i = 0; i < scores.Count; i++)
         {
             var amount = width * (scores[i].Value / 100f) * progress;
             if (amount > 1f)
             {
-                canvas.DrawRoundRect(new SKRoundRect(new SKRect(x, startY + (i * rowHeight) + 54f, x + amount, startY + (i * rowHeight) + 54f + height), height / 2f), paint);
+                var rect = new SKRect(x, startY + (i * rowHeight) - 26f, x + amount, startY + (i * rowHeight) - 26f + height);
+                var rounded = new SKRoundRect(rect, height / 2f);
+                using var paint = new SKPaint { Color = VibeColor(i), IsAntialias = true };
+                glow.Color = VibeColor(i).WithAlpha(190);
+                canvas.DrawRoundRect(rounded, glow);
+                canvas.DrawRoundRect(rounded, paint);
+                canvas.DrawRoundRect(rounded, highlight);
             }
         }
     }
@@ -2008,7 +2103,8 @@ public class StoryCardRenderer
         IEnumerable<IStoryLine> lines,
         float top,
         FooterSpec? footer,
-        Action<SKCanvas>? decorate)
+        Action<SKCanvas>? decorate,
+        float footerBaseline = Card.FooterBaseline)
     {
         using var surface = SKSurface.Create(
             new SKImageInfo(Card.Width, Card.Height, SKColorType.Rgba8888, SKAlphaType.Premul));
@@ -2033,8 +2129,8 @@ public class StoryCardRenderer
 
             // The text is nudged right to balance the dot sitting left of it.
             var textWidth = font.MeasureText(footer.Text);
-            canvas.DrawCircle(Card.CenterX - (textWidth / 2f) - 26f, Card.FooterBaseline - 11f, 9f, dot);
-            canvas.DrawText(footer.Text, Card.CenterX + 14f, Card.FooterBaseline, SKTextAlign.Center, font, paint);
+            canvas.DrawCircle(Card.CenterX - (textWidth / 2f) - 26f, footerBaseline - 11f, 9f, dot);
+            canvas.DrawText(footer.Text, Card.CenterX + 14f, footerBaseline, SKTextAlign.Center, font, paint);
         }
 
         return surface.Snapshot();

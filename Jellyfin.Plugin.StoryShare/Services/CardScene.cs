@@ -102,6 +102,15 @@ internal sealed class CardScene : IDisposable
     /// </summary>
     public bool FillWindow { get; init; }
 
+    /// <summary>Vibe Meter keeps its cover still while only its bars load.</summary>
+    public bool AnimateArtwork { get; init; } = true;
+
+    /// <summary>Show the complete cover inside the panel instead of cropping it.</summary>
+    public bool ContainArtwork { get; init; }
+
+    /// <summary>Fraction of the clip used to fill Vibe Meter before holding.</summary>
+    public float MeterFillFraction { get; init; } = 1f;
+
     /// <summary>Corner radius equal to half the side turns the clip into a circle.</summary>
     public bool ArtBorder { get; init; } = true;
 
@@ -130,6 +139,12 @@ internal sealed class CardScene : IDisposable
     public void Prepare(CardAnimation animation)
     {
         Animation = animation;
+
+        if (ContainArtwork && Art is not null && !ArtRect.IsEmpty)
+        {
+            ArtInner = Card.ContainRect(Art, ArtRect, 0.96f);
+            return;
+        }
 
         if (Art is null
             || ArtRect.IsEmpty
@@ -259,7 +274,11 @@ internal sealed class CardScene : IDisposable
         }
 
         canvas.DrawImage(TextLayer, 0, 0, Card.FrameSampling);
-        DrawDynamicOverlay?.Invoke(canvas, _videoMode ? swell : 1f);
+
+        // Vibe Meter is a one-way loading animation. It reaches the selected
+        // values and stays there; it must not visibly reverse before the clip ends.
+        var meterProgress = Math.Clamp(phase / MeterFillFraction, 0f, 1f);
+        DrawDynamicOverlay?.Invoke(canvas, _videoMode ? meterProgress : 1f);
     }
 
     /// <summary>
@@ -473,7 +492,15 @@ internal sealed class CardScene : IDisposable
         {
             var cover = Card.CoverSourceRect(Art!, ArtRect, ArtBiasY);
 
-            if (Spin)
+            if (ContainArtwork)
+            {
+                using var bed = new SKPaint { Color = Palette.Background.Bottom };
+                canvas.DrawRect(ArtRect, bed);
+                var whole = new SKRect(0, 0, Art!.Width, Art.Height);
+                var inner = AnimateArtwork ? Card.ScaleAbout(ArtInner, 1f + (0.025f * swell)) : ArtInner;
+                canvas.DrawImage(ArtImage, whole, inner, Card.FrameSampling, null);
+            }
+            else if (Spin)
             {
                 // The clip is already a circle, and a circle is rotation-invariant,
                 // so the square of artwork keeps covering it at every angle.
@@ -509,7 +536,7 @@ internal sealed class CardScene : IDisposable
             {
                 // The frame stays put and the image pushes in behind it — a Ken Burns
                 // move, rather than the whole panel growing.
-                var source = Card.Inset(cover, 1f + (0.05f * swell));
+                var source = AnimateArtwork ? Card.Inset(cover, 1f + (0.05f * swell)) : cover;
                 canvas.DrawImage(ArtImage, source, ArtRect, Card.FrameSampling, null);
             }
         }

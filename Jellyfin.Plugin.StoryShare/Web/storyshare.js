@@ -206,6 +206,12 @@
             '.storyshare-note{font-size:.85em;line-height:1.5;opacity:.75;margin:0;}',
             '.storyshare-controls [data-role="animationnote"],',
             '.storyshare-controls [data-role="themenote"]{margin-top:6px;}',
+            '.storyshare-vibes{display:flex;flex-direction:column;gap:10px;padding:12px 14px;border:1px solid #33373f;border-radius:8px;background:#0f1115;}',
+            '.storyshare-vibe{display:grid;grid-template-columns:112px 1fr 32px;align-items:center;gap:10px;font-size:.82em;}',
+            '.storyshare-vibe input{width:100%;accent-color:#4cc2f1;}',
+            '.storyshare-vibe-value{text-align:right;color:#4cc2f1;font-variant-numeric:tabular-nums;}',
+            '.storyshare-toggle{display:flex;width:max-content;margin:0 0 16px 0;padding:9px 14px;border-radius:8px;border:1px solid #33373f;background:#0f1115;color:inherit;font:inherit;text-align:left;cursor:pointer;}',
+            '.storyshare-toggle[aria-checked="true"]{border-color:#4cc2f1;color:#4cc2f1;}',
             '.storyshare-controls [hidden]{display:none;}',
             '.storyshare-status{font-size:.88em;min-height:1.2em;}',
             '.storyshare-status.error{color:#ff8080;}'
@@ -238,7 +244,7 @@
             '  </div>',
             '  <div class="storyshare-controls">',
             '    <h2>Share to Story</h2>',
-            '    <div>',
+            '    <div data-role="themerow">',
             '      <label for="storyshare-theme">Style</label>',
             '      <select id="storyshare-theme" data-role="theme"></select>',
             // Full bleed is the only style that prints a logo, and the corner falls
@@ -251,7 +257,7 @@
             '      <div class="storyshare-swatches" data-role="backgrounds" role="group"',
             '           aria-labelledby="storyshare-bg-label"></div>',
             '    </div>',
-            '    <div>',
+            '    <div data-role="formatrow">',
             '      <label for="storyshare-format">Format</label>',
             '      <select id="storyshare-format" data-role="format">',
             '        <option value="jpg">Still image</option>',
@@ -265,7 +271,12 @@
             '      <select id="storyshare-animation" data-role="animation"></select>',
             '      <p class="storyshare-note" data-role="animationnote"></p>',
             '    </div>',
-            '    <div>',
+            '    <div data-role="viberow" hidden>',
+            '      <label>Vibe Meter</label>',
+            '      <button class="storyshare-toggle" data-role="vibetoggle" type="button" role="switch" aria-checked="true">Animate meter</button>',
+            '      <div class="storyshare-vibes" data-role="vibes"></div>',
+            '    </div>',
+            '    <div data-role="captionrow">',
             '      <label for="storyshare-comment">Caption on the card (optional)</label>',
             '      <input id="storyshare-comment" data-role="comment" maxlength="180" placeholder="10/10, no notes">',
             // Shown only when the item actually has a tagline, and it only ever
@@ -286,6 +297,8 @@
         var el = function (role) { return overlay.querySelector('[data-role="' + role + '"]'); };
         var status = el('status');
         var background = 'auto';
+        var vibeValues = [];
+        var vibeAnimate = true;
 
         function setStatus(message, kind) {
             status.textContent = message || '';
@@ -348,18 +361,22 @@
         }
 
         function isVideo() {
-            return el('format').value === 'mp4';
+            return String(el('theme').value) === '2' ? vibeAnimate : el('format').value === 'mp4';
         }
 
         function query() {
             var params = new URLSearchParams();
             params.set('theme', el('theme').value);
-            params.set('format', el('format').value);
+            params.set('format', isVideo() ? 'mp4' : 'jpg');
             params.set('background', background);
+            if (String(el('theme').value) === '2') {
+                params.set('vibe', vibeValues.join(','));
+                params.set('vibeAnimate', vibeAnimate ? 'true' : 'false');
+            }
             // Left off a still on purpose: an image is the card at rest whatever is
             // selected here, so sending it would only split the server's cache.
             if (isVideo()) {
-                params.set('animation', el('animation').value);
+                params.set('animation', String(el('theme').value) === '2' ? '0' : el('animation').value);
             }
             var comment = el('comment').value.trim();
             if (comment) {
@@ -369,8 +386,39 @@
         }
 
         function syncAnimationRow() {
-            el('animationrow').hidden = !isVideo();
+            var isVibe = String(el('theme').value) === '2';
+            el('formatrow').hidden = isVibe;
+            el('animationrow').hidden = !isVideo() || isVibe;
+            el('viberow').hidden = !isVibe;
+            el('captionrow').hidden = isVibe;
         }
+
+        function buildVibeControls(values) {
+            var container = el('vibes');
+            container.innerHTML = '';
+            vibeValues = values.map(function (item) { return Math.max(0, Math.min(100, Number(item.Value || item.value || 0))); });
+            values.forEach(function (item, index) {
+                var row = document.createElement('div');
+                row.className = 'storyshare-vibe';
+                var label = document.createElement('span');
+                label.textContent = item.Label || item.label;
+                var input = document.createElement('input');
+                input.type = 'range'; input.min = '0'; input.max = '100'; input.value = vibeValues[index];
+                input.setAttribute('aria-label', label.textContent);
+                var value = document.createElement('span');
+                value.className = 'storyshare-vibe-value'; value.textContent = input.value;
+                input.addEventListener('input', function () { vibeValues[index] = Number(input.value); value.textContent = input.value; reload(); });
+                row.appendChild(label); row.appendChild(input); row.appendChild(value); container.appendChild(row);
+            });
+        }
+
+        el('vibetoggle').addEventListener('click', function () {
+            vibeAnimate = !vibeAnimate;
+            var toggle = el('vibetoggle');
+            toggle.setAttribute('aria-checked', vibeAnimate ? 'true' : 'false');
+            toggle.textContent = vibeAnimate ? 'Animate meter' : 'Meter stays filled';
+            reload();
+        });
 
         // Full bleed prints a logo in its top corner and sets "Shared with / Story
         // Share" as type when there is none. Matched on the value rather than the
@@ -540,6 +588,7 @@
         // No refresh button, so the card reloads whenever an input changes.
         el('theme').addEventListener('change', function () {
             syncThemeNote();
+            syncAnimationRow();
             reload();
         });
         el('format').addEventListener('change', function () {
@@ -578,7 +627,12 @@
                 .catch(function () { });
         }
 
-        loadStyles().then(function (loaded) {
+        Promise.all([
+            loadStyles(),
+            request('StoryShare/Items/' + itemId + '/Vibe').then(function (response) { return response.json(); })
+        ]).then(function (results) {
+            var loaded = results[0];
+            var vibe = prop(results[1], 'Values') || prop(results[1], 'values') || [];
             var themeSelect = el('theme');
             loaded.themes.forEach(function (theme) {
                 var option = document.createElement('option');
@@ -604,6 +658,7 @@
             syncAnimationRow();
             syncThemeNote();
             describeAnimation(loaded.animations);
+            buildVibeControls(vibe);
 
             buildSwatches(loaded.backgrounds, loaded.defaultBackground);
             loadPreview();
