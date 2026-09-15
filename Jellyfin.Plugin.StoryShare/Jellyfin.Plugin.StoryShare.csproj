@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net9.0</TargetFramework>
+    <TargetFramework>net10.0</TargetFramework>
     <RootNamespace>Jellyfin.Plugin.StoryShare</RootNamespace>
     <AssemblyVersion>1.0.0.0</AssemblyVersion>
     <FileVersion>1.0.0.0</FileVersion>
@@ -15,17 +15,17 @@
 
   <ItemGroup>
     <!-- Provided by the Jellyfin server at runtime: reference only, never ship.
-         These versions must track the target server (10.11.x runs on net9.0). -->
-    <PackageReference Include="Jellyfin.Controller" Version="10.11.11">
+         These versions must track the target server (12.1.x runs on net10.0). -->
+    <PackageReference Include="Jellyfin.Controller" Version="12.1.0">
       <ExcludeAssets>runtime</ExcludeAssets>
     </PackageReference>
-    <PackageReference Include="Jellyfin.Model" Version="10.11.11">
+    <PackageReference Include="Jellyfin.Model" Version="12.1.0">
       <ExcludeAssets>runtime</ExcludeAssets>
     </PackageReference>
     <!-- The server already ships SkiaSharp + its native assets; reference the same
          version so we bind to the server's copy instead of shipping a second one.
          3.x moved all text drawing from SKPaint onto SKFont. -->
-    <PackageReference Include="SkiaSharp" Version="3.116.1">
+    <PackageReference Include="SkiaSharp" Version="3.119.4">
       <ExcludeAssets>runtime</ExcludeAssets>
     </PackageReference>
   </ItemGroup>

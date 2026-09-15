@@ -60,8 +60,9 @@ whatever yours is called.
 
 ## Install
 
-**Requires Jellyfin 10.11.x.** The plugin targets .NET 9 and SkiaSharp 3, which is
-what 10.11 ships; see [Building](#building) for why 10.10 is not interchangeable.
+**Requires Jellyfin 12.1.x.** The plugin targets .NET 10 and the same SkiaSharp 3
+version shipped by Jellyfin 12.1. It uses Jellyfin's standard `Authorization` header,
+not the removed legacy `X-Emby-Token` header.
 
 ### From the plugin repository (recommended)
 
@@ -454,8 +455,9 @@ Turn it off with **Keep finished cards in memory**.
 
 ## Building
 
-Targets **Jellyfin 10.11.x**, which runs on .NET 9 and ships SkiaSharp 3. Requires the
-.NET 9 SDK.
+Targets **Jellyfin 12.1.x**, which runs on .NET 10 and ships SkiaSharp 3. Requires the
+.NET 10 SDK. The build metadata carries the target ABI and framework, so Jellyfin will
+not offer this package to an incompatible server major.
 
 ```powershell
 ./build.ps1

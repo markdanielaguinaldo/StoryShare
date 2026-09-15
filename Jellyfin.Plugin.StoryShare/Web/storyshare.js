@@ -61,9 +61,19 @@
 
     function request(path, method) {
         var client = api();
+        var token = client.accessToken();
+
+        if (!token) {
+            return Promise.reject(new Error('Story Share could not find your Jellyfin session. Please sign in again.'));
+        }
+
+        // Jellyfin 12 disables the legacy X-Emby-Token header. Use its standard
+        // Authorization header, which Jellyfin 12+ accepts and older supported
+        // releases already understand. Keeping this in one request helper makes
+        // every plugin endpoint follow future authentication changes together.
         return fetch(endpoint(path), {
             method: method || 'GET',
-            headers: { 'X-Emby-Token': client.accessToken() }
+            headers: { Authorization: 'MediaBrowser Token="' + token.replace(/\\/g, '\\\\').replace(/"/g, '\\"') + '"' }
         }).then(function (response) {
             if (!response.ok) {
                 throw new Error('Story Share request failed (' + response.status + ')');
