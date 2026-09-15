@@ -11,8 +11,8 @@ public enum CardTheme
     /// <summary>The cover edge to edge, with a bottom gradient and text over it.</summary>
     FullBleed = 1,
 
-    /// <summary>Flat colour derived from the artwork, no photographic background.</summary>
-    Minimal = 2,
+    /// <summary>Poster art with playful, metadata-derived meters.</summary>
+    VibeMeter = 2,
 
     /// <summary>Cover in a tilted paper frame, caption printed on the paper below it.</summary>
     Polaroid = 3,

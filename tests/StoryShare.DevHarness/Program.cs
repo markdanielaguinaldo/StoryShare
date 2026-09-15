@@ -98,10 +98,10 @@ foreach (var theme in Enum.GetValues<CardTheme>())
 
 // Backgrounds: a dark preset, a warm one, a pale one (which must flip the type to
 // dark), a raw hex, and a preset over a photographic theme.
-await Save("bg-midnight-minimal", movie, new StoryCardOptions { Theme = CardTheme.Minimal, Background = "midnight" });
+await Save("bg-midnight-vibemeter", movie, new StoryCardOptions { Theme = CardTheme.VibeMeter, Background = "midnight" });
 await Save("bg-ember-vinyl", track, new StoryCardOptions { Theme = CardTheme.Vinyl, Background = "ember" });
 await Save("bg-paper-stack", movie, new StoryCardOptions { Theme = CardTheme.Stack, Background = "paper" });
-await Save("bg-paper-minimal", movie, new StoryCardOptions { Theme = CardTheme.Minimal, Background = "paper" });
+await Save("bg-paper-vibemeter", movie, new StoryCardOptions { Theme = CardTheme.VibeMeter, Background = "paper" });
 await Save("bg-bone-polaroid", movie, new StoryCardOptions { Theme = CardTheme.Polaroid, Background = "bone" });
 await Save("bg-hex-polaroid", movie, new StoryCardOptions { Theme = CardTheme.Polaroid, Background = "#2E1A47" });
 await Save("bg-crimson-polaroid", movie, new StoryCardOptions { Theme = CardTheme.Polaroid, Background = "crimson" });
@@ -112,7 +112,7 @@ await Save("bg-crimson-fullbleed", movie, new StoryCardOptions { Theme = CardThe
 // scrim goes on harder than the automatic one and a pale choice has to flip the type
 // dark — the same trap Polaroid's caption fell into.
 await Save("bg-paper-fullbleed", movie, new StoryCardOptions { Theme = CardTheme.FullBleed, Background = "paper" });
-await Save("bg-nonsense", movie, new StoryCardOptions { Theme = CardTheme.Minimal, Background = "not-a-preset" });
+await Save("bg-nonsense", movie, new StoryCardOptions { Theme = CardTheme.VibeMeter, Background = "not-a-preset" });
 // Ticket prints on its own stock, so a pale preset and a deep one both have to
 // keep the printing legible — the same trap Polaroid's caption fell into.
 await Save("bg-paper-ticket", movie, new StoryCardOptions { Theme = CardTheme.Ticket, Background = "paper" });
@@ -122,8 +122,8 @@ await Save("bg-teal-crate", track, new StoryCardOptions { Theme = CardTheme.Cass
 
 // A per-render footer override has to get the same placeholder treatment the
 // configured one does, and an empty footer still has to hide it entirely.
-await Save("footer-placeholder", movie, new StoryCardOptions { Theme = CardTheme.Minimal, FooterText = "Streaming from {server}" });
-await Save("footer-none", movie, new StoryCardOptions { Theme = CardTheme.Minimal, FooterText = string.Empty });
+await Save("footer-placeholder", movie, new StoryCardOptions { Theme = CardTheme.VibeMeter, FooterText = "Streaming from {server}" });
+await Save("footer-none", movie, new StoryCardOptions { Theme = CardTheme.VibeMeter, FooterText = string.Empty });
 // Full bleed sets the footer as its eyebrow instead of printing it along the bottom,
 // so an empty footer has to leave the line out rather than leave a gap above the title.
 await Save("footer-none-fullbleed", movie, new StoryCardOptions { Theme = CardTheme.FullBleed, FooterText = string.Empty });
@@ -204,7 +204,7 @@ Console.WriteLine($"vinyl spin slower than before      : {rpm < 30d}");
 // the way Ticket does, and for a long time that meant Float, Pulse and Auto all
 // produced exactly the same video — a test that only ever looked at Ticket had no
 // way of noticing.
-foreach (var moveTheme in new[] { CardTheme.Ticket, CardTheme.FullBleed, CardTheme.Cassette })
+foreach (var moveTheme in new[] { CardTheme.Ticket, CardTheme.FullBleed, CardTheme.Cassette, CardTheme.VibeMeter })
 {
     foreach (var animation in new[] { CardAnimation.Float, CardAnimation.Pulse })
     {
@@ -262,7 +262,7 @@ foreach (var moveTheme in new[] { CardTheme.Ticket, CardTheme.FullBleed, CardThe
 
 // A still is the scene at phase 0 whatever the animation, so the picture must not
 // change with it — otherwise the dialog would show one card and share another.
-foreach (var stillTheme in new[] { CardTheme.Ticket, CardTheme.FullBleed, CardTheme.Cassette })
+foreach (var stillTheme in new[] { CardTheme.Ticket, CardTheme.FullBleed, CardTheme.Cassette, CardTheme.VibeMeter })
 {
     var stillAuto = await renderer.RenderAsync(movie, new StoryCardOptions { Theme = stillTheme }, SKEncodedImageFormat.Png, CancellationToken.None);
     foreach (var animation in new[] { CardAnimation.Float, CardAnimation.Pulse })

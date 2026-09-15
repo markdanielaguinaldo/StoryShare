@@ -25,7 +25,7 @@ internal sealed record Palette(SKColor Accent, CardBackground Background, bool L
     public float TextShadow => LightText ? 0f : 8f;
 }
 
-/// <summary>Per-theme typography. The defaults are the Poster/Full bleed/Minimal look.</summary>
+/// <summary>Per-theme typography. The defaults are the Poster/Full bleed/Vibe Meter look.</summary>
 internal sealed class TextSpec
 {
     public float TitleMax { get; init; } = 78f;

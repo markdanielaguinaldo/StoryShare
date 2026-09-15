@@ -47,6 +47,13 @@ internal sealed class CardScene : IDisposable
     /// </summary>
     public Action<SKCanvas>? DrawUnderArt { get; init; }
 
+    /// <summary>Cheap geometry drawn per frame over the artwork, used by Vibe Meter fills.</summary>
+    public Action<SKCanvas, float>? DrawDynamicOverlay { get; init; }
+
+    private bool _videoMode;
+
+    public void SetVideoMode() => _videoMode = true;
+
     /// <summary>Baked layer drawn over the artwork but still inside the tilt.</summary>
     public SKImage? TiltedOverlay { get; init; }
 
@@ -252,6 +259,7 @@ internal sealed class CardScene : IDisposable
         }
 
         canvas.DrawImage(TextLayer, 0, 0, Card.FrameSampling);
+        DrawDynamicOverlay?.Invoke(canvas, _videoMode ? swell : 1f);
     }
 
     /// <summary>

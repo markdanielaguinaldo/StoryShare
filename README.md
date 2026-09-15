@@ -108,7 +108,7 @@ in the plugin settings:
 | --- | --- |
 | **Poster** | Cover on a blurred version of its own artwork. |
 | **Full bleed** | The cover printed edge to edge — whichever of the poster and the backdrop loses least to the crop — with your mark flush in the top left corner and everything else set against the bottom left: the title, a rule, a row of facts with icons, and the footer line along the very bottom. |
-| **Minimal** | Flat background, no photographic backdrop. |
+| **Vibe Meter** | Poster plus five playful, deterministic metadata-derived meters. |
 | **Polaroid** | Cover set into a square print on a tilted paper card, caption printed on the card below it. |
 | **Vinyl** | Cover cut into a record — grooves, label ring and spindle hole. Spins in the video, at 10 rpm. |
 | **Stack** | Cover fanned out as a pile of cards, the front one face up and in focus. |
@@ -198,7 +198,7 @@ the default for new cards.
 
 What the background does depends on the style:
 
-- **Minimal, Vinyl, Stack, Crate, Review** paint it directly.
+- **Vibe Meter, Vinyl, Stack, Crate, Review** paint it directly.
 - **Polaroid** and **Ticket** paint *the card stock itself* with it, lifted 18% towards
   white so it still reads as paper rather than a flat swatch, and push the surround 60%
   darker so the card still stands off it. "Match the artwork" keeps the classic white

@@ -26,7 +26,7 @@
         themes: [
             { value: 0, label: 'Poster' },
             { value: 1, label: 'Full bleed' },
-            { value: 2, label: 'Minimal' },
+            { value: 2, label: 'Vibe Meter' },
             { value: 3, label: 'Polaroid' },
             { value: 4, label: 'Vinyl' },
             { value: 5, label: 'Stack' },

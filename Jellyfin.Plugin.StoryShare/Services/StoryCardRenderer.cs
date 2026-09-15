@@ -50,6 +50,7 @@ public class StoryCardRenderer
         CancellationToken cancellationToken)
     {
         using var scene = await BuildSceneAsync(item, options, cancellationToken).ConfigureAwait(false);
+        scene.SetVideoMode();
         using var surface = SKSurface.Create(new SKImageInfo(Card.Width, Card.Height, SKColorType.Rgba8888, SKAlphaType.Premul));
 
         scene.Draw(surface.Canvas, 0f);
@@ -151,6 +152,7 @@ public class StoryCardRenderer
         var scene = theme switch
         {
             CardTheme.FullBleed => BuildFullBleed(context),
+            CardTheme.VibeMeter => BuildVibeMeter(context),
             CardTheme.Polaroid => BuildPolaroid(context),
             CardTheme.Vinyl => BuildVinyl(context),
             CardTheme.Stack => BuildStack(context),
@@ -183,7 +185,83 @@ public class StoryCardRenderer
             string.IsNullOrWhiteSpace(FooterText) ? Card.SafeBottom : Card.FooterBaseline - footerGap;
     }
 
-    // ---------------------------------------------------------------- poster / minimal
+    // ---------------------------------------------------------------- poster
+
+    private CardScene BuildVibeMeter(LayoutContext context)
+    {
+        const float Margin = 76f;
+        const float ArtTop = 118f;
+        const float ArtHeight = 590f;
+        const float RowHeight = 126f;
+        const float BarWidth = 420f;
+        const float BarHeight = 18f;
+        var artRect = context.Art is null ? SKRect.Empty : new SKRect(Margin, ArtTop, Card.Width - Margin, ArtTop + ArtHeight);
+        var scores = VibeScores.For(context.Item);
+
+        using var surface = SKSurface.Create(new SKImageInfo(Card.Width, Card.Height, SKColorType.Rgba8888, SKAlphaType.Premul));
+        var canvas = surface.Canvas;
+        canvas.Clear(SKColors.Transparent);
+        using var labelFont = new SKFont(context.Bold, 34f);
+        using var verdictFont = new SKFont(context.Regular, 26f);
+        using var numberFont = new SKFont(context.Bold, 36f);
+        using var labelPaint = new SKPaint { Color = context.Palette.Title, IsAntialias = true };
+        using var mutedPaint = new SKPaint { Color = context.Palette.Muted, IsAntialias = true };
+        using var numberPaint = new SKPaint { Color = context.Palette.Accent, IsAntialias = true };
+        var startY = artRect.IsEmpty ? 260f : artRect.Bottom + 92f;
+        for (var i = 0; i < scores.Count; i++)
+        {
+            var score = scores[i];
+            var y = startY + (i * RowHeight);
+            canvas.DrawText(score.Label, Margin, y, SKTextAlign.Left, labelFont, labelPaint);
+            canvas.DrawText(score.Value.ToString(), Card.Width - Margin, y, SKTextAlign.Right, numberFont, numberPaint);
+            canvas.DrawText(score.Verdict, Margin, y + 34f, SKTextAlign.Left, verdictFont, mutedPaint);
+            using var track = new SKPaint { Color = context.Palette.ChipFill.WithAlpha(180), IsAntialias = true };
+            canvas.DrawRoundRect(new SKRoundRect(new SKRect(Margin, y + 54f, Margin + BarWidth, y + 54f + BarHeight), BarHeight / 2f), track);
+            using var fill = new SKPaint { Color = context.Palette.Accent, IsAntialias = true };
+            var filled = BarWidth * (score.Value / 100f);
+            canvas.DrawRoundRect(new SKRoundRect(new SKRect(Margin, y + 54f, Margin + filled, y + 54f + BarHeight), BarHeight / 2f), fill);
+        }
+
+        using var footerLayer = BuildOverlayLayer(Array.Empty<IStoryLine>(), 0f, Footer(context), null);
+        var textLayer = OverlayLayers(surface.Snapshot(), footerLayer);
+        return new CardScene
+        {
+            Theme = CardTheme.VibeMeter,
+            Palette = context.Palette,
+            Art = context.Art,
+            Backdrop = context.Backdrop,
+            TextLayer = textLayer,
+            ArtImage = ArtImageFor(context.Art, artRect),
+            ShadowLayer = artRect.IsEmpty ? null : BuildShadowLayer(artRect, 28f),
+            ArtRect = artRect,
+            DrawDynamicOverlay = (target, progress) => DrawVibeFills(target, scores, Margin, startY, RowHeight, BarWidth, BarHeight, context.Palette, progress)
+        };
+    }
+
+    private static void DrawVibeFills(SKCanvas canvas, IReadOnlyList<VibeScore> scores, float x, float startY, float rowHeight, float width, float height, Palette palette, float progress)
+    {
+        using var paint = new SKPaint { Color = palette.Accent, IsAntialias = true };
+        for (var i = 0; i < scores.Count; i++)
+        {
+            var amount = width * (scores[i].Value / 100f) * progress;
+            if (amount > 1f)
+            {
+                canvas.DrawRoundRect(new SKRoundRect(new SKRect(x, startY + (i * rowHeight) + 54f, x + amount, startY + (i * rowHeight) + 54f + height), height / 2f), paint);
+            }
+        }
+    }
+
+    private static SKImage OverlayLayers(SKImage bottom, SKImage top)
+    {
+        using (bottom)
+        {
+            using var surface = SKSurface.Create(new SKImageInfo(Card.Width, Card.Height, SKColorType.Rgba8888, SKAlphaType.Premul));
+            surface.Canvas.Clear(SKColors.Transparent);
+            surface.Canvas.DrawImage(bottom, 0, 0, Card.FrameSampling);
+            surface.Canvas.DrawImage(top, 0, 0, Card.FrameSampling);
+            return surface.Snapshot();
+        }
+    }
 
     private CardScene BuildClassic(CardTheme theme, LayoutContext context)
     {
@@ -222,8 +300,7 @@ public class StoryCardRenderer
 
         // The blur is by far the most expensive step, so bake the background once
         // into an oversized layer that later frames simply pan and zoom within.
-        // Minimal shares this layout but not the photographic backdrop, so it gets
-        // no layer at all and the scene falls through to the flat gradient.
+        // Poster alone has the photographic backdrop; flat styles use the gradient.
         var backgroundLayer = IsFlat(theme)
             ? null
             : BuildBackgroundLayer(context.Backdrop ?? context.Art);
