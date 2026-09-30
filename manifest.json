@@ -8,20 +8,20 @@
         "category":  "General",
         "versions":  [
                          {
+                             "version":  "1.4.2",
+                             "changelog":  "Fix plugin updates; remove stale 1.4.1.0 package entry.",
+                             "targetAbi":  "12.1.0.0",
+                             "sourceUrl":  "https://github.com/markdanielaguinaldo/StoryShare/releases/download/v1.4.2/storyshare_1.4.2.zip",
+                             "checksum":  "cde36d16252d5602443630c0e5e86ccf",
+                             "timestamp":  "2026-09-30T05:39:32Z"
+                         },
+                         {
                              "version":  "1.4.1",
                              "changelog":  "Targets Jellyfin 12.1 on .NET 10, adds Vibe Meter cards, and uses the standard Authorization header for Story Share requests.",
                              "targetAbi":  "12.1.0.0",
                              "sourceUrl":  "https://github.com/markdanielaguinaldo/StoryShare/releases/download/v1.4.1/storyshare_1.4.1.zip",
                              "checksum":  "15fb3b0afc590a937b9fb945ddf59393",
                              "timestamp":  "2026-09-15T14:28:22Z"
-                         },
-                         {
-                             "version":  "1.4.1.0",
-                             "changelog":  "",
-                             "targetAbi":  "12.1.0.0",
-                             "sourceUrl":  "https://github.com/markdanielaguinaldo/StoryShare/releases/download/v1.4.1.0/storyshare_1.4.1.0.zip",
-                             "checksum":  "1440c5db0333591ff01be08f0663c0ec",
-                             "timestamp":  "2026-09-15T12:31:41Z"
                          },
                          {
                              "version":  "1.4.0.0",
