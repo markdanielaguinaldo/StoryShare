@@ -1,32 +1,44 @@
-<img src="docs/icon.png" alt="" width="96">
+<img src="docs/icon.png" alt="Story Share" width="96">
 
 # Story Share
 
-A Jellyfin plugin that turns any movie, episode, album or track in your library into
-a 1080×1920 card ready to post as an Instagram Story — or any other vertical social
-format.
+A Jellyfin plugin for turning movies, episodes, albums, and tracks into vertical
+story cards.
 
-Press the **share** icon on an item's detail page, pick a style and a colour, and the plugin
-renders a card from that item's own artwork and metadata as either a still image or a
-looping video, then hands it to your phone.
+Choose a layout, add an optional caption, and export the result as a 1080×1920 JPEG
+or looping MP4. The card uses the item's artwork and metadata, so it is ready to share
+to Instagram Stories or other vertical social formats.
 
-It does not post anything anywhere: Instagram has no API for posting to a personal
-account's story, so the plugin makes the file and you share it yourself.
+Story Share does not publish to social media. It creates the file; you decide where to
+post it.
 
-## Demo
+## What it includes
+
+- Nine card layouts for movies, shows, albums, and tracks
+- Artwork-matched or manually selected background colours
+- Optional captions, including a suggested item tagline when one exists
+- Still JPEG and animated MP4 output
+- Three animation modes: Auto, Float, and Pulse
+- Optional server branding and a custom logo
+- A share button added to Jellyfin item pages
+- Signed, short-lived download links
+- Optional in-memory caching for completed renders
+
+## Preview
 
 [![Story Share in use — opening the dialog from a movie's detail page, switching styles, picking a background, then rendering an animated card](docs/demo.gif)](docs/demo.mp4)
 
-*The Story dialog on a movie's detail page: cycling through styles, picking a
-background, switching the format to video and choosing an animation, and dropping the
-item's own tagline in as the caption. [Full-quality MP4](docs/demo.mp4).*
+The demo shows the Story dialog on an item page, including style selection, background
+selection, video output, animation selection, and an optional tagline caption.
+
+[Watch the full-quality demo](docs/demo.mp4)
 
 ---
 
 ## Sample cards
 
-Three cards straight out of the plugin, rendered from a real library at the full
-1080×1920 — nothing retouched, nothing cropped. Click one for the original file.
+These examples were rendered directly by the plugin at 1080×1920. Select an image to
+open the full-size file.
 
 <table>
 <tr>
@@ -35,20 +47,14 @@ Three cards straight out of the plugin, rendered from a real library at the full
 <td width="33%" valign="top"><a href="docs/samples/fullbleed-pulse.mp4"><img src="docs/samples/fullbleed-pulse.gif" alt="Full bleed style animated with Pulse: Exit 8, the picture printed to every edge with the title, tagline and facts set against the bottom left"></a></td>
 </tr>
 <tr>
-<td valign="top"><b>Review</b>, on a background matched to the artwork — the red is the
-poster's own, pulled out of it and carried by the frame's corners, the footer dot and
-the stars.</td>
-<td valign="top"><b>Stack</b>, again on a matched background. The front cover is face up
-and in focus; the two behind it are the same image dimmed and stepped back.</td>
-<td valign="top"><b>Full bleed</b> as video, with the <b>Pulse</b> animation and a brand
-logo set in the top left corner. The caption is the item's own tagline, dropped in from
-the dialog. <a href="docs/samples/fullbleed-pulse.mp4">Full-quality MP4</a>.</td>
+<td valign="top"><b>Review</b><br>Poster, rating, and caption presented as a review.</td>
+<td valign="top"><b>Stack</b><br>Artwork arranged as a small pile of cards.</td>
+<td valign="top"><b>Full bleed + Pulse</b><br>Artwork fills the frame and the accent light moves behind it.</td>
 </tr>
 </table>
 
-The line along the bottom of each is the footer, and it reads *Project Mark* here
-because that is the name of the server they were rendered on — `{server}` expands to
-whatever yours is called.
+The footer in these examples reads *Project Mark* because that was the name of the
+server used to render them. `{server}` expands to the name of your own Jellyfin server.
 
 ---
 
@@ -58,13 +64,20 @@ whatever yours is called.
 
 ---
 
+## Requirements
+
+- Jellyfin 12.1.x
+- A Jellyfin server running the plugin's target runtime: .NET 10
+- A Jellyfin client with the standard web interface
+
+The plugin is built against the SkiaSharp 3 version provided by Jellyfin 12.1. It uses
+Jellyfin's standard `Authorization` header.
+
 ## Install
 
-**Requires Jellyfin 12.1.x.** The plugin targets .NET 10 and the same SkiaSharp 3
-version shipped by Jellyfin 12.1. It uses Jellyfin's standard `Authorization` header,
-not the removed legacy `X-Emby-Token` header.
+This is the recommended installation method.
 
-### From the plugin repository (recommended)
+### From the plugin repository
 
 1. In Jellyfin, go to **Dashboard → Plugins → Repositories → `+`**
 2. Add this URL:
@@ -78,7 +91,7 @@ not the removed legacy `X-Emby-Token` header.
 5. Reload the web client with a hard refresh (<kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>R</kbd>)
    so the browser picks up the plugin's script
 
-Updates then show up in the catalog like any other plugin.
+Future releases will appear in the catalog.
 
 ### Manually
 
@@ -120,7 +133,7 @@ The accent colour — chip outlines, the footer dot, the record's rim, the edges
 fanned cards — is pulled from each item's own artwork unless you pin one in the
 settings.
 
-### Covers in a window that is not their shape
+### How artwork is fitted
 
 Some styles put the artwork in a slot with a shape of its own: a polaroid's print is
 square, a vinyl's label is a circle. Crop a 2:3 poster to fill one of those and what is
@@ -146,7 +159,7 @@ surface*, so they always crop to fill — a whole cover set on a blurred bed is 
 the look they exist to avoid — and the crop is biased towards the top of the frame,
 which is where a poster keeps its faces.
 
-### The footer line
+### Footer text
 
 The small line at the bottom of every card is **Footer text** in the settings, and
 `{server}` in it is replaced with this Jellyfin server's own name. The default is
@@ -164,7 +177,7 @@ bottom under the facts. It is the one line either way: a card that said *NOW PLA
 over the title and *Now playing in <server>* under the fold was saying the same thing
 twice.
 
-### Your own logo on a Full bleed card
+### Custom logo
 
 **Brand logo** in the settings takes a full path to an image on the server, and Full
 bleed prints it hard into the top left corner — your server's lockup, not this
@@ -306,15 +319,26 @@ is most music, show no offer at all.
 Review is the style built around the caption: it sets it as body copy without quote
 marks, over four lines rather than three, because there the caption *is* the review.
 
----
-
 ## Getting the card onto a phone
 
-**Go to URL** is the only action. It opens a short-lived signed URL, which the server
-sends as an attachment, so the browser saves the card. Pick a style and type a caption
-and the card re-renders; there is no refresh button.
+**Go to URL** opens a short-lived signed link to the generated file. Change the style
+or caption and the preview is rendered again; there is no separate refresh button.
 
-### The Jellyfin Android app
+### Android
+
+The link opens in the device's default browser, where the file can be downloaded
+normally.
+
+### iPhone and iPad
+
+Safari may display the image instead of downloading it. Press and hold the preview,
+then choose **Save to Photos**.
+
+---
+
+## How the share button works
+
+### Jellyfin Android app
 
 The app is a WebView with no download handler, so a link it opens internally can never
 save a file. The way out is the one jellyfin-web itself uses:
@@ -332,7 +356,7 @@ phone's default browser, which downloads it normally. **Do not** reach for
 of those stops the delegation and the link dies inside the app again. This is why the
 action is a bare `<a>` with no JavaScript attached to its click.
 
-### Saving on iOS
+### iOS and browser behaviour
 
 iOS Safari ignores both the `download` attribute and `Content-Disposition: attachment`
 — it just displays the image. The route that actually reaches the camera roll is
@@ -345,8 +369,6 @@ dialog opens rather than when the button is clicked — Chrome cancels a downloa
 begins after an `await`, since the click's user activation has expired by then.
 
 ---
-
-## The share button
 
 A share icon in the detail page's button row, with no text label — it sits among
 jellyfin-web's own icon buttons and matching them keeps the row clean. The icon is
