@@ -1,2 +1,5 @@
 # Auto detect text files and perform LF normalization
 * text=auto
+
+# Keep the commit-msg hook runnable by sh: force LF on checkout.
+.githooks/* text eol=lf
