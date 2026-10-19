@@ -1,0 +1,27 @@
+#!/bin/sh
+# Enforce the commit subject format: "[<Project>] brief summary of the change".
+# Project label for this repo: StoryShare
+# Wired up via: git config core.hooksPath .githooks
+# Intentional bypass: git commit --no-verify
+
+PROJECT='StoryShare'
+
+msgfile="$1"
+[ -f "$msgfile" ] || exit 0
+
+# Subject = first non-comment, non-blank line of the message.
+subject=$(sed -e '/^#/d' -e '/^[[:space:]]*$/d' "$msgfile" | head -n 1 | tr -d '\r')
+
+# Empty message: leave it to git's own empty-message handling.
+[ -z "$subject" ] && exit 0
+
+case "$subject" in
+  "[$PROJECT] "?*) exit 0 ;;
+  'Merge '*|'Revert '*|'fixup! '*|'squash! '*|'amend! '*) exit 0 ;;
+esac
+
+echo "Commit message rejected: the subject must match the [$PROJECT] brief summary format." >&2
+echo "Got: $subject" >&2
+echo "Example: [$PROJECT] Fix subtitle acquisition during playback" >&2
+echo "Intentional bypass: git commit --no-verify" >&2
+exit 1
