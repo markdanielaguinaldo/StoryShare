@@ -186,6 +186,10 @@ public sealed class CardCache
             .Append('|').Append(config.Theme)
             .Append('|').Append(config.Animation)
             .Append('|').Append(config.FooterText)
+            // Full bleed paints the configured logo into the card, so a swapped logo
+            // has to miss the cache; without it a card rendered in the last couple of
+            // hours keeps serving the old mark after the setting changes.
+            .Append('|').Append(config.BrandLogoPath)
             .Append('|').Append(_server.Name)
             .Append('|').Append(config.AccentColor)
             .Append('|').Append(config.Background)
