@@ -1,533 +1,117 @@
-<img src="docs/icon.png" alt="Story Share" width="96">
+<p align="center">
+  <img src="docs/logo.png" alt="Story Share" width="440">
+</p>
 
-# Story Share
+<p align="center">
+  <strong>Turn your Jellyfin library into Instagram-ready story cards.</strong><br>
+  A Jellyfin plugin that renders movies, shows, episodes, albums, and tracks as
+  1080×1920 stills or looping videos.
+</p>
 
-A Jellyfin plugin for turning movies, episodes, albums, and tracks into vertical
-story cards.
+<p align="center">
+  <a href="#quick-start">Quick Start</a> ·
+  <a href="docs/installation.md">Installation</a> ·
+  <a href="docs/configuration.md">Configuration</a> ·
+  <a href="docs/user-guide.md">User Guide</a> ·
+  <a href="docs/troubleshooting.md">Troubleshooting</a>
+</p>
 
-Choose a layout, add an optional caption, and export the result as a 1080×1920 JPEG
-or looping MP4. The card uses the item's artwork and metadata, so it is ready to share
-to Instagram Stories or other vertical social formats.
-
-Story Share does not publish to social media. It creates the file; you decide where to
-post it.
-
-## What it includes
-
-- Nine card layouts for movies, shows, albums, and tracks
-- Artwork-matched or manually selected background colours
-- Optional captions, including a suggested item tagline when one exists
-- Still JPEG and animated MP4 output
-- Three animation modes: Auto, Float, and Pulse
-- Optional server branding and a custom logo
-- A share button added to Jellyfin item pages
-- Signed, short-lived download links
-- Optional in-memory caching for completed renders
+Story Share adds a share button to Jellyfin item pages. Choose a layout, background,
+optional caption, and output format; the plugin renders a vertical card from the item's
+own artwork and metadata. Save the file to your phone and post it wherever you like.
+Story Share does not publish to social media.
 
 ## Preview
 
-[![Story Share in use — opening the dialog from a movie's detail page, switching styles, picking a background, then rendering an animated card](docs/demo.gif)](docs/demo.mp4)
+[![The Story Share dialog on a Jellyfin movie page, switching styles and rendering an animated card](docs/demo.gif)](docs/demo.mp4)
 
-The demo shows the Story dialog on an item page, including style selection, background
-selection, video output, animation selection, and an optional tagline caption.
-
-[Watch the full-quality demo](docs/demo.mp4)
-
----
-
-## Sample cards
-
-These examples were rendered directly by the plugin at 1080×1920. Select an image to
-open the full-size file.
+The Story dialog on an item page: style and background selection, video output,
+animation, and an optional tagline caption. [Watch the full-quality demo](docs/demo.mp4).
 
 <table>
 <tr>
-<td width="33%" valign="top"><a href="docs/samples/review.jpg"><img src="docs/samples/review.jpg" alt="Review style: The Penguin, its poster set small inside a bracketed frame above a five-star row"></a></td>
-<td width="33%" valign="top"><a href="docs/samples/stack.jpg"><img src="docs/samples/stack.jpg" alt="Stack style: That Time I Got Reincarnated as a Slime, the cover fanned out over two more cards"></a></td>
-<td width="33%" valign="top"><a href="docs/samples/fullbleed-pulse.mp4"><img src="docs/samples/fullbleed-pulse.gif" alt="Full bleed style animated with Pulse: Exit 8, the picture printed to every edge with the title, tagline and facts set against the bottom left"></a></td>
+<td width="33%" valign="top"><a href="docs/samples/review.jpg"><img src="docs/samples/review.jpg" width="260" alt="Review style: The Penguin, its poster above a five-star row"></a></td>
+<td width="33%" valign="top"><a href="docs/samples/stack.jpg"><img src="docs/samples/stack.jpg" width="260" alt="Stack style: a cover fanned out over two more cards"></a></td>
+<td width="33%" valign="top"><a href="docs/samples/fullbleed-pulse.mp4"><img src="docs/samples/fullbleed-pulse.gif" width="260" alt="Full bleed style animated with Pulse"></a></td>
 </tr>
 <tr>
-<td valign="top"><b>Review</b><br>Poster, rating, and caption presented as a review.</td>
-<td valign="top"><b>Stack</b><br>Artwork arranged as a small pile of cards.</td>
-<td valign="top"><b>Full bleed + Pulse</b><br>Artwork fills the frame and the accent light moves behind it.</td>
+<td valign="top"><b>Review</b><br>Poster, star score, and caption as a review.</td>
+<td valign="top"><b>Stack</b><br>Artwork arranged as a pile of cards.</td>
+<td valign="top"><b>Full bleed + Pulse</b><br>Artwork to every edge, with drifting light.</td>
 </tr>
 </table>
 
-The footer in these examples reads *Project Mark* because that was the name of the
-server used to render them. `{server}` expands to the name of your own Jellyfin server.
+The sample footer reads *Project Mark* because that was the name of the server used to
+render them. Your cards use your own server name.
 
----
+## Quick Start
 
-![Card styles rendered with placeholder artwork](docs/themes.png)
+**Requirements:** Jellyfin 12.1.x on .NET 10 with the standard web client. Video output
+also needs ffmpeg configured on the server; Jellyfin includes and configures one by
+default.
 
-*Layout preview rendered with placeholder artwork — real cards use your library's posters and covers.*
+1. In Jellyfin, open **Dashboard → Plugins → Repositories**, select **+**, and add this
+   repository URL:
 
----
-
-## Requirements
-
-- Jellyfin 12.1.x
-- A Jellyfin server running the plugin's target runtime: .NET 10
-- A Jellyfin client with the standard web interface
-
-The plugin is built against the SkiaSharp 3 version provided by Jellyfin 12.1. It uses
-Jellyfin's standard `Authorization` header.
-
-## Install
-
-This is the recommended installation method.
-
-### From the plugin repository
-
-1. In Jellyfin, go to **Dashboard → Plugins → Repositories → `+`**
-2. Add this URL:
-
-   ```
+   ```text
    https://raw.githubusercontent.com/markdanielaguinaldo/StoryShare/main/manifest.json
    ```
 
-3. Go to **Catalog**, find **Story Share** under *General*, and install it
-4. Restart Jellyfin
-5. Reload the web client with a hard refresh (<kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>R</kbd>)
-   so the browser picks up the plugin's script
+2. Open **Catalog**, find **Story Share** under **General**, and install it.
+3. Restart Jellyfin.
+4. Hard-refresh the web client (<kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>R</kbd>) so the
+   plugin's script is loaded.
+5. Open a movie, show, episode, album, or track and select the share icon in the detail
+   button row.
+6. Pick a style, background, format, and animation, add a caption if you want one, then
+   use **Go to URL** to open the card on your phone.
 
-Future releases will appear in the catalog.
+Set **Public base URL** in **Dashboard → Plugins → Story Share** before opening share
+links from outside your network. For manual installs, upgrades, and compatibility, see
+the [installation guide](docs/installation.md).
 
-### Manually
+## Features
 
-Download `storyshare_<version>.zip` from
-[Releases](https://github.com/markdanielaguinaldo/StoryShare/releases) and unzip it
-into your Jellyfin plugin directory:
+- **Nine card styles** — Poster, Full bleed, Vibe Meter, Polaroid, Vinyl, Stack, Ticket,
+  Crate, and Review.
+- **Story-ready output** — 1080×1920 JPEG stills or H.264 MP4 videos sized for Stories.
+- **Three animation modes** — Auto, Float, and Pulse, plus Vinyl's record spin.
+- **Backgrounds** — sixteen presets, a custom colour, or a palette matched to the artwork.
+- **Captions** — free text, with a one-click suggestion from the item's tagline when one
+  exists.
+- **Vibe Meter** — five playful, metadata-derived scores you can adjust, with animated
+  meter fills.
+- **Server branding** — footer text with a `{server}` placeholder, an accent colour, and
+  a custom logo for Full bleed.
+- **Share button** — added to jellyfin-web item pages without modifying files on disk.
+- **Signed links** — short-lived, HMAC-signed URLs for opening and saving cards on a
+  phone.
+- **In-memory cache** — keeps finished renders so previewing and opening the same card
+  does not draw it twice.
 
-| Platform | Path |
+Story Share creates the file; it does not post to Instagram or any other service.
+
+## Documentation
+
+| Guide | Contents |
 | --- | --- |
-| Linux / Docker | `/config/plugins/StoryShare/` |
-| Windows | `%ProgramData%\Jellyfin\Server\plugins\StoryShare\` |
-
-Restart Jellyfin, then open **Dashboard → Plugins → Story Share** to configure it.
-
-> If your server runs with custom paths (`--datadir`), the plugin folder lives under
-> *that* data directory, not `%ProgramData%`. Check the server's own start-up command
-> if the plugin does not appear after a restart.
-
----
-
-## Card styles
-
-Nine, picked per card from the Story dialog's **Style** dropdown, with the default set
-in the plugin settings:
-
-| Style | What it looks like |
-| --- | --- |
-| **Poster** | Cover on a blurred version of its own artwork. |
-| **Full bleed** | The cover printed edge to edge — whichever of the poster and the backdrop loses least to the crop — with your mark flush in the top left corner and everything else set against the bottom left: the title, a rule, a row of facts with icons, and the footer line along the very bottom. |
-| **Vibe Meter** | Poster plus five playful, deterministic metadata-derived meters. |
-| **Polaroid** | Cover set into a square print on a tilted paper card, caption printed on the card below it. |
-| **Vinyl** | Cover cut into a record — grooves, label ring and spindle hole. Spins in the video, at 10 rpm. |
-| **Stack** | Cover fanned out as a pile of cards, the front one face up and in focus. |
-| **Ticket** | Cinema stub: the cover printed as a billboard across the full width of the ticket's head, a perforated tear across the bottom and *admit one* printed on the torn-off part. |
-| **Crate** | Cover at the front of a crate, two sleeves receding behind it and stepping out to the left, the way records do when you push them forward one at a time. |
-| **Review** | Framed card, poster small, with a five-star row and your caption set as the review itself. |
-
-The accent colour — chip outlines, the footer dot, the record's rim, the edges of the
-fanned cards — is pulled from each item's own artwork unless you pin one in the
-settings.
-
-### How artwork is fitted
-
-Some styles put the artwork in a slot with a shape of its own: a polaroid's print is
-square, a vinyl's label is a circle. Crop a 2:3 poster to fill one of those and what is
-left is a middle strip with neither the title nor anyone's face in it.
-
-**Full bleed answers to the background colour**, which is how you rescue a card whose
-cover has swallowed its own words. A colour chosen by hand is laid on harder than the
-automatic one — it was picked for a reason — and a pale choice flips the type dark, the
-same way a flat theme does. Leave it on *match the artwork* and the scrim stays out of
-the picture's way.
-
-So when the artwork and its window are more than a quarter off each other's shape, the
-cover is **set whole inside the window** on a blurred, darkened copy of itself instead
-of being cropped to fill it. Anything closer than that is cropped as before, since the
-difference would be a few pixels off an edge. Vinyl is left out — its window is a
-circle, and a fitted rectangle turning behind a round hole is not a record.
-
-The bed is baked once at build time; only the push-in moves per frame, and the cover
-is fitted with a margin so it grows into that instead of being clipped by it.
-
-**Full bleed and Ticket avoid the question entirely.** Both mean *the picture is the
-surface*, so they always crop to fill — a whole cover set on a blurred bed is exactly
-the look they exist to avoid — and the crop is biased towards the top of the frame,
-which is where a poster keeps its faces.
-
-### Footer text
-
-The small line at the bottom of every card is **Footer text** in the settings, and
-`{server}` in it is replaced with this Jellyfin server's own name. The default is
-`Now playing in {server}`, so a fresh install says *Now playing in <your server>*
-without anyone editing anything, and renaming the server in Dashboard → General
-updates every card from then on.
-
-It is read per card rather than captured at startup, and it falls back to `Jellyfin`
-if the server has no name set. Leaving the field **empty** still hides the footer
-entirely — that is what empty has always meant, and the placeholder expansion
-deliberately leaves empty text alone.
-
-**Full bleed sets the same line in caps and in the accent colour**, along the very
-bottom under the facts. It is the one line either way: a card that said *NOW PLAYING*
-over the title and *Now playing in <server>* under the fold was saying the same thing
-twice.
-
-### Custom logo
-
-**Brand logo** in the settings takes a full path to an image on the server, and Full
-bleed prints it hard into the top left corner — your server's lockup, not this
-plugin's. Leave it empty and the corner is set as type instead, so the card never has
-a hole in it.
-
-The logo goes truly flush, bleeding off both edges the way the picture under it does,
-so give it **transparency around the mark**: an image with its own opaque background
-reads as a block stuck to the corner rather than as part of the card. Note too that
-this is the one thing on the card outside the safe band — Instagram lays its own
-chrome across the top strip, so a mark up here can be partly covered while the story
-is being viewed.
-
-A path rather than an upload because a plugin has nowhere to put an uploaded file that
-a server upgrade will not wipe, and any server that has a logo already keeps it
-somewhere. A path that cannot be read is logged and ignored: a card without a logo is
-better than a share that fails over a typo.
-
-> Up to 1.1.0.0 the default was the literal `Now playing in Project Mark` — one
-> particular server's name, hardcoded — so every other install printed a stranger's
-> server on its cards until someone edited it. 1.1.1.0 rewrites exactly that string
-> to `Now playing in {server}` on first load, and touches nothing that was typed by
-> hand.
-
-### Background colours
-
-A row of swatches in the Story dialog sets the card's background: **Match the
-artwork** (the default, a gradient derived from the item's accent colour), any of
-sixteen presets, or a custom colour from the native picker. The plugin settings hold
-the default for new cards.
-
-What the background does depends on the style:
-
-- **Vibe Meter, Vinyl, Stack, Crate, Review** paint it directly.
-- **Polaroid** and **Ticket** paint *the card stock itself* with it, lifted 18% towards
-  white so it still reads as paper rather than a flat swatch, and push the surround 60%
-  darker so the card still stands off it. "Match the artwork" keeps the classic white
-  stock.
-- **Poster** and **Full bleed** keep the item's artwork behind the card and pull the
-  *blurred backdrop only* towards the chosen colour — the cover itself stays true.
-  This uses a `Color` blend, which replaces hue and saturation but leaves luminance
-  alone, so the dark scrim under the text survives whatever colour is picked.
-
-The two pale presets (**Paper**, **Bone**) flip the card to dark type. That switch is
-driven by relative luminance, so a custom colour light enough to need it gets it too.
-It only applies to the styles that show the background behind the text; Poster and
-Full bleed always sit on their own dark scrim and stay in white type. Polaroid and
-Ticket decide separately, from the luminance of the *stock*, since their text is
-printed on the card rather than on the background.
-
-Backgrounds travel in the share link, so a card opened on a phone renders in the
-colour you picked. Preset ids and raw hex are interchangeable everywhere:
-`?background=midnight` and `?background=%232E1A47` both work.
-
----
-
-## Animated cards
-
-The **Format** dropdown offers a still JPEG or a video. Choosing video reveals an
-**Animation** dropdown — it stays hidden for a still, because a still is the card at
-rest whatever is selected and every option would render the identical image.
-
-| Animation | What moves |
-| --- | --- |
-| **Auto** | The style's own movement: a slow push-in on the cover, a blurred backdrop drifting the other way for parallax, and a light sweep crossing the artwork once per loop. Vinyl spins. |
-| **Float** | The whole card — paper, ticket, shell and the cover inside it — drifts through a figure of eight while the background and the text stay put. |
-| **Pulse** | Two beats per loop: the artwork swells and a wash of accent light breathes behind the card. |
-
-Float moves the card as one object rather than the artwork alone, or a photo would
-slide out of the frame that is meant to be holding it, and it moves in whole pixels so
-the baked layers are never resampled. Pulse's glow is drawn *behind* the card body,
-not over it — on opaque stock like the ticket, painting on top just washes the whole
-card pale. Full bleed is the exception it has to make: behind a picture that reaches
-every edge there is nowhere to put a light, so it takes a breath of accent light across
-the picture instead.
-
-All three work on every style. That is worth saying because for a long time it was not
-true: Full bleed drew its artwork as a background rather than as a panel, and the
-push-in, the drift and the beat all hang off the panel — so whichever animation you
-picked, the video came out the same. It is now the card's art panel, overscanned past
-each edge so Float has somewhere to slide it to.
-
-They loop seamlessly by construction: the zoom is driven by `(1 - cos 2πp) / 2`, so the
-last frame lands back at the first; Float's offsets are sines of a whole number of
-turns; Pulse beats on `(1 - cos 4πp) / 2`. The dev harness asserts all of it — mean
-per-pixel difference across the loop seam is 0.00 versus 2.88 mid-loop for the default,
-and no more than an ordinary frame step for the other two.
-
-That construction is also what sets their **speed**. Both are whole numbers of cycles
-per loop, so — exactly as with Vinyl's spin — the only way to slow one down is to give
-it a longer loop to cover the same cycles in. Both run on `AnimationSpec.Gentle`: 96
-frames at 24 fps, a 4 second loop played twice, which halves them against the 2 second
-default. Pulse breathes once every two seconds and Float takes four seconds to trace its
-figure of eight.
-
-The default lives in **Dashboard → Plugins → Story Share**, and travels in the share
-link so a card opened on a phone moves the way it did in the preview.
-
-**Video, not GIF.** Instagram flattens a GIF added to a story into a static image, so
-GIF is useless for the one job this exists to do. The output is an MP4 chosen to be
-boring enough that Stories always accepts it:
-
-| | |
-| --- | --- |
-| Container / codec | MP4, H.264 **High**, `yuv420p` (4:4:4 gets rejected) |
-| Size | 1080x1920 |
-| Length | 6 s — a 2 s loop repeated 3x (Float and Pulse: 8 s, a 4 s loop repeated twice; Vinyl: 12 s, a 6 s loop repeated twice) |
-| Audio | silent AAC stereo 44.1 kHz — Instagram is unreliable with video carrying no audio stream at all |
-| | `-movflags +faststart` |
-
-Only one loop is ever drawn; ffmpeg repeats it with `-stream_loop`, so a 6 s clip costs
-2 s of rendering. `-stream_loop` cannot read a pipe, which is why the first pass writes
-a temp file while frames themselves are piped in as raw RGBA.
-
-About 7 s of server time for most styles, so the dialog says "Building the video…"
-while it works.
-
-**Vinyl's spin rate is a property of the loop, not a setting.** A rotation only meets
-itself at the seam after a whole number of turns, so the record must complete exactly
-one turn per loop, and the only way to slow it down is to make the loop longer. It
-runs on its own `AnimationSpec` — 144 frames at 24 fps, a 6 second loop played twice —
-which puts it at 10 rpm and costs roughly 17 s of drawing against 7 s for every other
-style. Changing the speed means changing the loop length, in `AnimationSpec.Spin`.
-
-Every other style does the ordinary push-in, which is driven by a cosine and therefore
-lands back where it started without anyone having to think about it.
-
----
-
-## Captions
-
-The **Caption on the card** box is free text, and nothing goes in it unless you type
-it. When an item has a tagline in its metadata, the dialog offers it underneath —
-`Use the tagline: "…"` — and clicking that just types the tagline into the box, where
-it can be edited or deleted like anything else. It is never applied on its own: plenty
-of taglines are marketing copy nobody wants on their story. Items without one, which
-is most music, show no offer at all.
-
-Review is the style built around the caption: it sets it as body copy without quote
-marks, over four lines rather than three, because there the caption *is* the review.
-
-## Getting the card onto a phone
-
-**Go to URL** opens a short-lived signed link to the generated file. Change the style
-or caption and the preview is rendered again; there is no separate refresh button.
-
-### Android
-
-The link opens in the device's default browser, where the file can be downloaded
-normally.
-
-### iPhone and iPad
-
-Safari may display the image instead of downloading it. Press and hold the preview,
-then choose **Save to Photos**.
-
----
-
-## How the share button works
-
-### Jellyfin Android app
-
-The app is a WebView with no download handler, so a link it opens internally can never
-save a file. The way out is the one jellyfin-web itself uses:
-
-```js
-el.href = url;
-el.target = '_blank';
-el.rel = 'noopener noreferrer';
-el.setAttribute('is', 'emby-linkbutton');
-```
-
-With `is="emby-linkbutton"` and `target="_blank"`, the app delegates the URL to the
-phone's default browser, which downloads it normally. **Do not** reach for
-`window.open()`, `preventDefault()`, a click handler, or a `download` attribute — each
-of those stops the delegation and the link dies inside the app again. This is why the
-action is a bare `<a>` with no JavaScript attached to its click.
-
-### iOS and browser behaviour
-
-iOS Safari ignores both the `download` attribute and `Content-Disposition: attachment`
-— it just displays the image. The route that actually reaches the camera roll is
-**press and hold the preview → Save to Photos**, so the dialog says exactly that when
-it detects iOS. This is why the preview is a plain signed URL rather than a `blob:`
-URL: iOS will not offer to save a blob.
-
-Android Chrome saves normally, but only because the download URL is resolved when the
-dialog opens rather than when the button is clicked — Chrome cancels a download that
-begins after an `await`, since the click's user activation has expired by then.
-
----
-
-A share icon in the detail page's button row, with no text label — it sits among
-jellyfin-web's own icon buttons and matching them keeps the row clean. The icon is
-`aria-hidden`, so with no visible text the button carries its own `aria-label`;
-`title` alone is not reliably announced.
-
-Jellyfin exposes no client-side plugin API, so the button has to reach the web client
-through `jellyfin-web/index.html`. The plugin adds one `<script>` tag to that page
-**as it is served** — a middleware injected into the request pipeline rewrites the
-response on its way out — so nothing on disk is ever touched. It does this only when
-**Add a share button to item pages** is ticked, and the tag is gone from the very
-next page load when you untick it.
-
-Serving it rather than writing it is deliberate. A distro package install puts
-jellyfin-web under `/usr/share/jellyfin/web`, owned by `root`, while the server runs
-as the `jellyfin` user: a plugin that writes to `index.html` there fails with
-`Permission denied` and the button never appears. Versions up to 1.0.0.1 did write to
-the file, so they needed a `chown` before the button would show up on those installs.
-They don't any more, and the leftover tag and its `index.html.storyshare.bak` are
-cleaned up on the first start after upgrading — or simply ignored, if the file still
-isn't writable.
-
-Plugins get a hook into Jellyfin's service collection but not into its request
-pipeline. The way across is an `IStartupFilter`, which ASP.NET Core resolves from that
-collection and wraps around the server's own pipeline setup, so middleware registered
-before the inner call runs ahead of the static-file middleware that serves
-`index.html`. See `Services/ClientScriptMiddleware.cs`.
-
-Because there is no plugin API, the script polls for the detail page's button row
-rather than being told when one appears — and that row exists, empty, while
-jellyfin-web is still fetching the item. It also survives navigation, so during a load
-it can be the *previous* item's row. Three signals therefore have to agree before the
-button is added: the route is a detail route, no spinner is up, and the row already
-holds jellyfin-web's own buttons. Buttons are tagged with the item id they were built
-for and dropped as soon as it changes, so a stale one can never be left pointing at
-the wrong item.
-
-One consequence worth knowing: because the tag is injected per response, `index.html`
-is served with `Cache-Control: no-cache` and without an `ETag`. It is a few kilobytes
-and the browser revalidates it on each load; everything jellyfin-web pulls in
-afterwards is cached exactly as before.
-
-If the button still doesn't appear, check the log for this line, written once at
-startup:
-
-```
-StoryShare: web client hook installed
-```
-
-Then hard-refresh the browser (Ctrl+Shift+R, or Cmd+Shift+R on a Mac) — the old
-`index.html` may still be cached from before the upgrade.
-
----
-
-## API
-
-All endpoints require a normal Jellyfin token except `Public/{token}`, which is gated
-by an HMAC signature and an expiry instead.
-
-| Method | Route | Purpose |
-| --- | --- | --- |
-| `GET` | `/StoryShare/Items/{itemId}/Card?theme=&comment=&background=&animation=&vibe=&vibeAnimate=&format=` | Render the card |
-| `POST` | `/StoryShare/Items/{itemId}/ShareLink?theme=&comment=&background=&animation=&vibe=&vibeAnimate=&format=` | Mint a signed, expiring link |
-| `GET` | `/StoryShare/Styles` | Available styles, background presets and animations |
-| `GET` | `/StoryShare/Items/{itemId}/Caption` | The item's tagline, if it has one, for the dialog to offer |
-| `GET` | `/StoryShare/Items/{itemId}/Vibe` | The item's default Vibe Meter values |
-| `GET` | `/StoryShare/Public/{token}.jpg` | Anonymous, signature-gated card |
-
-`Styles` exists so neither the settings page nor the share dialog keeps its own copy
-of the style and palette lists; both build their controls from it, with a hardcoded
-fallback if the call fails.
-
-Share links are signed with a key generated on first run and stored in the plugin
-config. Changing it invalidates every outstanding link. The background, and later the
-animation, were **appended** to the token payload rather than slotted in beside the
-theme they belong with, so links minted before either existed still parse and still
-render — the harness holds an older five-field token down for exactly that reason.
-
-### Caching
-
-Finished cards are held in memory, because the flow asks for the same one twice: the
-dialog renders a preview, then the link that gets opened renders it again. A Vinyl
-video is ~17 s of drawing plus two ffmpeg passes, so the second request is worth not
-paying for.
-
-The key covers everything that changes what a card looks like — the item id, its
-`DateModified` and `DateLastSaved`, the style, background, animation, format and
-caption, plus a
-fingerprint of the render-affecting settings. That is why nothing listens for a
-config-changed event: editing the footer text or turning off the runtime chip simply
-makes every card rendered under the old settings unreachable, and they age out.
-
-The server's name is in the key on its own account, not just via the footer text:
-`{server}` expands to it, so renaming the server changes the card without the
-configured footer changing by a single character.
-
-Bounded by **Cache size (MB)** in the settings (64 by default), least-recently-used
-first, with a two-hour backstop. A single card larger than a quarter of the budget is
-not stored at all — it would evict everything else to keep one thing. Only completed
-renders are cached: two identical requests arriving at the same moment both draw. The
-alternative, sharing one in-flight task, would let one caller's cancellation kill
-another caller's render, and the flows that repeat a card are sequential anyway.
-
-Turn it off with **Keep finished cards in memory**.
-
----
-
-## Building
-
-Targets **Jellyfin 12.1.x**, which runs on .NET 10 and ships SkiaSharp 3. Requires the
-.NET 10 SDK. The build metadata carries the target ABI and framework, so Jellyfin will
-not offer this package to an incompatible server major.
-
-```powershell
-./build.ps1
-```
-
-Output lands in `artifacts/dist/`, and `manifest.json` is rewritten with the new
-version's checksum and release URL. To cut a release:
-
-```powershell
-./build.ps1 -Version 1.1.0.0 -Changelog "What changed"
-gh release create v1.1.0.0 artifacts/dist/storyshare_1.1.0.0.zip
-git commit -am "Release 1.1.0.0" && git push
-```
-
-The manifest is generated rather than hand-edited because Jellyfin verifies its
-checksum against the downloaded zip — a hash that drifts from the artifact breaks
-installs with a confusing error.
-
-Note that 10.10 and 10.11 are **not** interchangeable: 10.10 is net8.0 with SkiaSharp
-2, and SkiaSharp 3 removed the whole `SKPaint` text API (`TextSize`, `MeasureText`,
-`DrawText`) in favour of `SKFont`. Back-porting means rewriting the text drawing in
-`StoryCardRenderer`, not just changing version numbers.
-
-### Dev harness
-
-Card layout is easy to break and slow to check against a live server, so there is a
-standalone harness that renders every style to PNG and exercises the share-token
-signing:
-
-```powershell
-dotnet run --project tests/StoryShare.DevHarness
-```
-
-It writes the cards to `tests/StoryShare.DevHarness/bin/Release/net9.0/out/` and exits
-non-zero if a token test fails. It covers every style with and without artwork, the
-pale presets, a raw hex background, both directions of the cover fitting, and every
-animation loop — the ordinary push-in, Vinyl's spin, plus Float and Pulse across three
-different styles. Each loop is checked for a seam no
-bigger than an ordinary frame step, for moving at all, and for leaving the still image
-untouched. Running the last of those against more than one style is the point: Full
-bleed's animations were dead for months, and a test that only ever looked at Ticket had
-no way of noticing. The peak frame of each is written out as `animation-*.png`: numbers
-catch a loop that does not close, but only a picture catches a card that moves badly. Worth a
-look after any change to the renderer — byte counts alone have caught bugs, but layout
-regressions need eyes.
-
----
+| [Installation](docs/installation.md) | Requirements, catalog and manual installation, upgrades, compatibility |
+| [Configuration](docs/configuration.md) | Every plugin setting, share-link options, cache controls |
+| [User Guide](docs/user-guide.md) | Styles, backgrounds, artwork fitting, animation, captions, saving to a phone |
+| [Troubleshooting](docs/troubleshooting.md) | Missing button, broken links, video failures, iOS saving, logs |
+| [Development and API](docs/development.md) | Build and release flow, dev harness, API endpoints, architecture notes |
+
+## Security
+
+- Share links are HMAC-signed and expire. The default lifetime is 60 minutes and can be
+  set from 5 minutes to 7 days.
+- Anyone who has a share URL can open that card until it expires. Treat the URL as a
+  bearer token and use HTTPS for the public base URL.
+- The signing key is generated on first run and stored in the plugin configuration.
+  Rotating or deleting it invalidates every outstanding share link.
+- Card endpoints require a normal Jellyfin token. The anonymous routes are the
+  signature-gated public card route and the static web-client script.
+- Story Share does not publish to social media.
 
 ## License
 
