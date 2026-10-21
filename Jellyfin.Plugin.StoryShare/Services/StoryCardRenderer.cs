@@ -110,12 +110,11 @@ public class StoryCardRenderer
     // ---------------------------------------------------------------- scene setup
 
     /// <summary>
-    /// Themes that paint a flat background instead of the item's own artwork.
-    /// Stated as the exceptions, because only two styles put the item's own
-    /// photograph behind the card and every style added since has been flat.
+    /// Themes that paint a flat background. Poster and Review blur the artwork;
+    /// Full bleed paints it edge to edge.
     /// </summary>
     private static bool IsFlat(CardTheme theme) =>
-        theme is not (CardTheme.Poster or CardTheme.FullBleed);
+        theme is not (CardTheme.Poster or CardTheme.FullBleed or CardTheme.Review);
 
     private async Task<CardScene> BuildSceneAsync(
         BaseItem item,
@@ -134,11 +133,11 @@ public class StoryCardRenderer
         var accent = ResolveAccent(options.AccentColor ?? config.AccentColor, art);
         var background = BackgroundPresets.Resolve(options.Background, config, accent);
 
-        // Poster's bed is a blurred photograph under a heavy scrim, so its type stays
-        // light whatever the preset. Full bleed paints its scrim in the chosen colour
-        // — that is the point of choosing one when a busy cover is fighting the words
-        // — so a pale preset there has to flip the type dark like a flat theme does.
-        var readsLight = (flat || theme == CardTheme.FullBleed) && background.IsLight;
+        // A blurred photograph under a heavy scrim keeps light type whatever the preset.
+        // Full bleed's scrim takes the chosen colour, so a pale preset flips it dark; a
+        // photographic style with no art falls through to that same pale gradient.
+        var hasPhotoBed = !flat && (backdrop ?? art) is not null;
+        var readsLight = background.IsLight && (!hasPhotoBed || theme == CardTheme.FullBleed);
         var palette = new Palette(accent, background, readsLight);
 
         using var bold = CreateTypeface(SKFontStyleWeight.Bold);
@@ -1996,30 +1995,43 @@ public class StoryCardRenderer
 
     private CardScene BuildReview(LayoutContext context)
     {
-        const float Gap = 66f;
-        const float FrameInset = 58f;
-        const float ArtScale = 0.72f;
+        const float Gap = 62f;
+        const float FrameInset = 54f;
+        const float FrameCorner = 30f;
+        const float ArtCorner = 24f;
+        const float ArtMaxWidth = 500f;
+        const float ArtMaxHeight = 760f;
+
+        // A pill needs real room, and its position must not depend on the preset.
+        const float PillHeight = 150f;
+        const float PillCentreY = Card.FooterBaseline - 145f;
+        const float PillGap = 54f;
 
         var lines = BuildTextBlock(context, context.Palette, SpecFor(CardTheme.Review));
         var textHeight = TotalHeight(lines);
 
-        // Smaller than every other style's cover on purpose: here the poster is
-        // the illustration and the words are the point.
+        // A generous cover, capped by height so a long review never loses its room.
         var artRect = SKRect.Empty;
         if (context.Art is not null)
         {
             var full = MeasureArtRect(context.Art);
-            var width = full.Width * ArtScale;
-            artRect = SKRect.Create(Card.CenterX - (width / 2f), 0, width, full.Height * ArtScale);
+            var scale = MathF.Min(ArtMaxWidth / full.Width, ArtMaxHeight / full.Height);
+            var width = full.Width * scale;
+            var height = full.Height * scale;
+            artRect = SKRect.Create(Card.CenterX - (width / 2f), 0, width, height);
         }
 
-        var available = context.ContentBottom() - Card.SafeTop;
+        var hasFooter = !string.IsNullOrWhiteSpace(context.FooterText);
+        var contentBottom = hasFooter
+            ? PillCentreY - (PillHeight / 2f) - PillGap
+            : context.ContentBottom();
+        var available = contentBottom - Card.SafeTop;
         var gap = artRect.IsEmpty ? 0f : Gap;
         var totalHeight = artRect.Height + gap + textHeight;
 
         if (!artRect.IsEmpty && totalHeight > available)
         {
-            artRect = ShrinkToFit(artRect, available - gap - textHeight, 200f);
+            artRect = ShrinkToFit(artRect, available - gap - textHeight, 220f);
             if (artRect.IsEmpty)
             {
                 gap = 0f;
@@ -2035,65 +2047,274 @@ public class StoryCardRenderer
             cursorY = artRect.Bottom + gap;
         }
 
-        // The frame goes in the topmost layer, so it reads as printing on the card
-        // rather than something the poster could sit on top of.
+        // Frame, title bloom and pill are printed on the topmost layer.
+        var titleTop = cursorY;
+        var titleHeight = lines.Count > 0 ? lines[0].Height : 0f;
         var textLayer = BuildOverlayLayer(
             lines,
             cursorY,
-            Footer(context),
-            canvas => DrawReviewFrame(canvas, FrameInset, context.Palette));
+            null,
+            canvas =>
+            {
+                DrawReviewTitleGlow(canvas, titleTop + (titleHeight / 2f), context.Palette);
+                DrawReviewFrame(canvas, FrameInset, FrameCorner, context.Palette);
+                if (hasFooter)
+                {
+                    DrawReviewPill(
+                        canvas,
+                        context.FooterText!,
+                        _server.Name,
+                        PillCentreY,
+                        PillHeight,
+                        context.Bold,
+                        context.Regular);
+                }
+            });
         Dispose(lines);
 
+        // Blurred artwork gives Review depth instead of a flat ramp.
         return new CardScene
         {
             Theme = CardTheme.Review,
             Palette = context.Palette,
             Art = context.Art,
+            Backdrop = context.Backdrop,
+            BackgroundLayer = BuildBackgroundLayer(context.Backdrop ?? context.Art, 34f),
+            BackgroundScrim = 0.8f,
+            DecorLayer = artRect.IsEmpty ? null : BuildReviewGlow(artRect, ArtCorner, context.Palette.Accent),
             ArtImage = ArtImageFor(context.Art, artRect),
-            ShadowLayer = artRect.IsEmpty ? null : BuildShadowLayer(artRect, 16f),
+            ArtBorderColor = StarShape.Color.WithAlpha(125),
+            ShadowLayer = artRect.IsEmpty ? null : BuildShadowLayer(artRect, ArtCorner),
             TextLayer = textLayer,
             ArtRect = artRect,
-            ArtCorner = 16f
+            ArtCorner = ArtCorner
         };
     }
 
-    /// <summary>A hairline border with a tick at each corner, like a printed plate.</summary>
-    private static void DrawReviewFrame(SKCanvas canvas, float inset, Palette palette)
+    /// <summary>A hairline rounded border, like the edge of a printed plate.</summary>
+    private static void DrawReviewFrame(SKCanvas canvas, float inset, float corner, Palette palette)
     {
-        const float Tick = 34f;
-
         var frame = new SKRect(inset, inset, Card.Width - inset, Card.Height - inset);
 
-        using (var line = new SKPaint
+        using var line = new SKPaint
         {
             Style = SKPaintStyle.Stroke,
             StrokeWidth = 2f,
             IsAntialias = true,
-            Color = palette.Title.WithAlpha(60)
-        })
-        {
-            canvas.DrawRect(frame, line);
-        }
-
-        using var corner = new SKPaint
-        {
-            Style = SKPaintStyle.Stroke,
-            StrokeWidth = 5f,
-            IsAntialias = true,
-            Color = palette.Accent.WithAlpha(210)
+            Color = palette.Title.WithAlpha(45)
         };
 
-        foreach (var (x, y, dx, dy) in new[]
+        canvas.DrawRoundRect(new SKRoundRect(frame, corner), line);
+    }
+
+    /// <summary>A soft accent bloom behind the title.</summary>
+    private static void DrawReviewTitleGlow(SKCanvas canvas, float centreY, Palette palette)
+    {
+        const float Radius = 430f;
+
+        using var glow = new SKPaint
         {
-            (frame.Left, frame.Top, 1f, 1f),
-            (frame.Right, frame.Top, -1f, 1f),
-            (frame.Left, frame.Bottom, 1f, -1f),
-            (frame.Right, frame.Bottom, -1f, -1f)
+            IsAntialias = true,
+            Shader = SKShader.CreateRadialGradient(
+                new SKPoint(Card.CenterX, centreY),
+                Radius,
+                new[] { palette.Accent.WithAlpha(48), palette.Accent.WithAlpha(0) },
+                new[] { 0f, 1f },
+                SKShaderTileMode.Clamp)
+        };
+
+        canvas.DrawCircle(Card.CenterX, centreY, Radius, glow);
+    }
+
+    /// <summary>The baked halo that lights the cover from behind.</summary>
+    private static SKImage BuildReviewGlow(SKRect rect, float corner, SKColor accent)
+    {
+        using var surface = SKSurface.Create(
+            new SKImageInfo(Card.Width, Card.Height, SKColorType.Rgba8888, SKAlphaType.Premul));
+        var canvas = surface.Canvas;
+        canvas.Clear(SKColors.Transparent);
+
+        var rounded = new SKRoundRect(rect, corner);
+
+        using (var halo = new SKPaint
+        {
+            IsAntialias = true,
+            Color = accent.WithAlpha(150),
+            ImageFilter = SKImageFilter.CreateDropShadowOnly(0, 0, 48f, 48f, accent.WithAlpha(170))
         })
         {
-            canvas.DrawLine(x, y, x + (Tick * dx), y, corner);
-            canvas.DrawLine(x, y, x, y + (Tick * dy), corner);
+            canvas.DrawRoundRect(rounded, halo);
         }
+
+        using (var bloom = new SKPaint
+        {
+            IsAntialias = true,
+            Color = SKColors.White.WithAlpha(22),
+            ImageFilter = SKImageFilter.CreateDropShadowOnly(0, 0, 82f, 82f, SKColors.White.WithAlpha(64))
+        })
+        {
+            canvas.DrawRoundRect(rounded, bloom);
+        }
+
+        return surface.Snapshot();
+    }
+
+    /// <summary>
+    /// The Now playing pill: the footer's lead-in small, the server name large in gold.
+    /// </summary>
+    private static void DrawReviewPill(
+        SKCanvas canvas,
+        string footer,
+        string serverName,
+        float centreY,
+        float height,
+        SKTypeface bold,
+        SKTypeface regular)
+    {
+        var (label, value) = SplitFooter(footer, serverName);
+
+        using var labelFont = new SKFont(regular, 27f) { Edging = SKFontEdging.SubpixelAntialias };
+        using var valueFont = new SKFont(bold, label is null ? 34f : 38f)
+        {
+            Edging = SKFontEdging.SubpixelAntialias
+        };
+
+        const float maxValueWidth = 440f;
+        var valueWidth = valueFont.MeasureText(value);
+        while (valueWidth > maxValueWidth && valueFont.Size > 24f)
+        {
+            valueFont.Size -= 2f;
+            valueWidth = valueFont.MeasureText(value);
+        }
+
+        const float maxLabelWidth = 400f;
+        var labelWidth = label is null ? 0f : labelFont.MeasureText(label);
+        while (labelWidth > maxLabelWidth && labelFont.Size > 22f)
+        {
+            labelFont.Size -= 1f;
+            labelWidth = labelFont.MeasureText(label);
+        }
+
+        const float iconDiameter = 70f;
+        const float iconGap = 26f;
+        const float horizontalPadding = 56f;
+
+        var textWidth = MathF.Max(labelWidth, valueWidth);
+        var contentWidth = iconDiameter + iconGap + textWidth;
+        var width = Math.Clamp(contentWidth + (horizontalPadding * 2f), 560f, 900f);
+
+        var rect = SKRect.Create(Card.CenterX - (width / 2f), centreY - (height / 2f), width, height);
+        var rounded = new SKRoundRect(rect, height / 2f);
+
+        // The glow first, then the fill: the filter is shadow-only, so drawing it in
+        // the fill's pass would replace the fill rather than sit behind it.
+        using (var shadow = new SKPaint
+        {
+            IsAntialias = true,
+            Color = StarShape.Color.WithAlpha(120),
+            ImageFilter = SKImageFilter.CreateDropShadowOnly(0, 10f, 30f, 30f, StarShape.Color.WithAlpha(90))
+        })
+        {
+            canvas.DrawRoundRect(rounded, shadow);
+        }
+
+        using (var fill = new SKPaint
+        {
+            IsAntialias = true,
+            Shader = SKShader.CreateLinearGradient(
+                new SKPoint(0, rect.Top),
+                new SKPoint(0, rect.Bottom),
+                new[] { new SKColor(22, 21, 24, 214), new SKColor(8, 8, 11, 232) },
+                new[] { 0f, 1f },
+                SKShaderTileMode.Clamp)
+        })
+        {
+            canvas.DrawRoundRect(rounded, fill);
+        }
+
+        using (var edge = new SKPaint
+        {
+            Style = SKPaintStyle.Stroke,
+            StrokeWidth = 2.5f,
+            IsAntialias = true,
+            Color = StarShape.Color.WithAlpha(205)
+        })
+        {
+            canvas.DrawRoundRect(rounded, edge);
+        }
+
+        var contentLeft = rect.Left + ((rect.Width - contentWidth) / 2f);
+        var iconX = contentLeft + (iconDiameter / 2f);
+        var textX = contentLeft + iconDiameter + iconGap;
+
+        using (var disc = new SKPaint
+        {
+            IsAntialias = true,
+            Color = StarShape.Color.WithAlpha(30)
+        })
+        using (var ring = new SKPaint
+        {
+            Style = SKPaintStyle.Stroke,
+            StrokeWidth = 3f,
+            IsAntialias = true,
+            Color = StarShape.Color
+        })
+        {
+            canvas.DrawCircle(iconX, centreY, iconDiameter / 2f, disc);
+            canvas.DrawCircle(iconX, centreY, iconDiameter / 2f, ring);
+        }
+
+        using (var play = new SKPath())
+        {
+            play.MoveTo(iconX - 8f, centreY - 15f);
+            play.LineTo(iconX - 8f, centreY + 15f);
+            play.LineTo(iconX + 17f, centreY);
+            play.Close();
+
+            using var paint = new SKPaint { IsAntialias = true, Color = StarShape.Color };
+            canvas.DrawPath(play, paint);
+        }
+
+        using var labelPaint = new SKPaint { IsAntialias = true, Color = new SKColor(0xD6, 0xDA, 0xE2) };
+        using var valuePaint = new SKPaint { IsAntialias = true, Color = StarShape.Color };
+
+        if (label is null)
+        {
+            var baseline = centreY - ((valueFont.Metrics.Ascent + valueFont.Metrics.Descent) / 2f);
+            canvas.DrawText(value, textX, baseline, SKTextAlign.Left, valueFont, valuePaint);
+            return;
+        }
+
+        var labelLine = labelFont.Metrics.Descent - labelFont.Metrics.Ascent;
+        var valueLine = valueFont.Metrics.Descent - valueFont.Metrics.Ascent;
+        var groupTop = centreY - ((labelLine + 2f + valueLine) / 2f);
+        var labelBaseline = groupTop - labelFont.Metrics.Ascent;
+        var valueBaseline = groupTop + labelLine + 2f - valueFont.Metrics.Ascent;
+
+        canvas.DrawText(label, textX, labelBaseline, SKTextAlign.Left, labelFont, labelPaint);
+        canvas.DrawText(value, textX, valueBaseline, SKTextAlign.Left, valueFont, valuePaint);
+    }
+
+    /// <summary>Splits the footer at a trailing server name; otherwise the whole text is the value.</summary>
+    private static (string? Label, string Value) SplitFooter(string footer, string serverName)
+    {
+        var text = footer.Trim();
+        var endsWithServer = serverName.Length > 0
+            && text.Length > serverName.Length
+            && text.EndsWith(serverName, StringComparison.OrdinalIgnoreCase);
+
+        if (endsWithServer)
+        {
+            var at = text.Length - serverName.Length;
+            var label = text[..at].Trim().TrimEnd(':', '-', '·', ',').TrimEnd();
+            var value = text[at..].Trim();
+            if (label.Length > 0 && value.Length > 0)
+            {
+                return (label, value);
+            }
+        }
+
+        return (null, text);
     }
 
     // ---------------------------------------------------------------- shared layers
@@ -2164,8 +2385,10 @@ public class StoryCardRenderer
         return surface.Snapshot();
     }
 
-    /// <summary>The blurred, oversized bed a card sits on. Poster's, and nobody else's.</summary>
-    private static SKImage? BuildBackgroundLayer(SKBitmap? source)
+    /// <summary>
+    /// The blurred, oversized bed a card sits on. Review asks for a lighter blur.
+    /// </summary>
+    private static SKImage? BuildBackgroundLayer(SKBitmap? source, float blur = 48f)
     {
         if (source is null)
         {
@@ -2184,7 +2407,7 @@ public class StoryCardRenderer
         using (var image = SKImage.FromBitmap(source))
         using (var paint = new SKPaint
         {
-            ImageFilter = SKImageFilter.CreateBlur(48f, 48f, SKShaderTileMode.Clamp)
+            ImageFilter = SKImageFilter.CreateBlur(blur, blur, SKShaderTileMode.Clamp)
         })
         {
             canvas.DrawImage(image, Card.CoverSourceRect(source, dest), dest, Card.Sampling, paint);
@@ -2240,22 +2463,22 @@ public class StoryCardRenderer
             CommentMax = 32f,
             MaxWidth = 840f
         },
-        // The caption is the review, so it gets body-copy size and no quotes, and
-        // the score is a star row rather than one more chip.
+        // The caption is the review: body copy, no quotes, and a rule-and-stars score
+        // instead of chips. Review is the type-led card, so its type is the largest.
         CardTheme.Review => new TextSpec
         {
-            TitleMax = 68f,
-            TitleMin = 40f,
+            TitleMax = 78f,
+            TitleMin = 44f,
             TitleLines = 2,
-            TitleSpacing = 16f,
+            TitleSpacing = 18f,
             SubtitleMax = 34f,
             SubtitleMin = 26f,
-            CommentMax = 36f,
+            CommentMax = 34f,
             CommentLines = 4,
             QuoteComment = false,
-            MaxWidth = 760f,
+            MaxWidth = 900f,
             Chips = false,
-            Stars = true
+            RatingDivider = true
         },
         _ => new TextSpec()
     };
@@ -2292,18 +2515,13 @@ public class StoryCardRenderer
                 26f));
         }
 
-        // The star row and the chip row occupy the same slot: a Review card that
-        // showed both would state the same score twice.
-        if (spec.Stars)
+        // The divider shares the chip row's slot and appears even without a score.
+        if (spec.RatingDivider)
         {
-            if (context.Config.ShowRating && context.Item.CommunityRating is > 0)
-            {
-                // Jellyfin scores out of ten; a star row is out of five.
-                lines.Add(new StarRating(
-                    context.Item.CommunityRating.Value / 2f,
-                    32f,
-                    palette.Muted.WithAlpha(70)));
-            }
+            var rating = context.Config.ShowRating
+                ? (context.Item.CommunityRating ?? 0f) / 2f
+                : 0f;
+            lines.Add(new RatingDivider(rating, 19f, palette.Title.WithAlpha(45)));
         }
         else if (spec.Chips)
         {

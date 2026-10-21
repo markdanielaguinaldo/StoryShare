@@ -51,8 +51,8 @@ internal sealed class TextSpec
 
     public bool Chips { get; init; } = true;
 
-    /// <summary>Draw a five-star row in place of the chip row.</summary>
-    public bool Stars { get; init; }
+    /// <summary>Draw the score as a rule-and-stars divider in place of the chip row.</summary>
+    public bool RatingDivider { get; init; }
 }
 
 /// <summary>
@@ -91,19 +91,22 @@ internal static class StarShape
 }
 
 /// <summary>
-/// A row of five stars filled to a 0..5 score. The partial star is clipped rather
-/// than drawn at a smaller size, so a 3.4 reads as "a bit past three and a half"
-/// the way a review site draws it.
+/// The score between two fading rules, or a single star when unrated. A partial
+/// star is clipped rather than shrunk, so 3.9 reads as nearly four.
 /// </summary>
-internal sealed class StarRating : IStoryLine
+internal sealed class RatingDivider : IStoryLine
 {
-    private const float Gap = 20f;
+    private const float StarGap = 13f;
+    private const float RuleGap = 32f;
+    private const float RuleLength = 140f;
+    private const float RuleWeight = 2f;
+    private const byte RuleAlpha = 170;
 
     private readonly float _value;
     private readonly float _radius;
     private readonly SKColor _empty;
 
-    public StarRating(float outOfFive, float radius, SKColor empty)
+    public RatingDivider(float outOfFive, float radius, SKColor empty)
     {
         _value = Math.Clamp(outOfFive, 0f, 5f);
         _radius = radius;
@@ -112,19 +115,33 @@ internal sealed class StarRating : IStoryLine
 
     public float Height => _radius * 2f;
 
-    public float SpacingAfter => 34f;
+    public float SpacingAfter => 42f;
 
     public void Draw(SKCanvas canvas, float top)
     {
-        var step = (_radius * 2f) + Gap;
-        var x = Card.CenterX - (((step * 5f) - Gap) / 2f) + _radius;
+        var stars = _value > 0f ? 5 : 1;
+        var step = (_radius * 2f) + StarGap;
+        var cluster = stars == 1 ? _radius * 2f : (step * stars) - StarGap;
+        var left = Card.CenterX - (cluster / 2f);
         var cy = top + _radius;
+
+        DrawRule(canvas, left - RuleGap, left - RuleGap - RuleLength, cy);
+        DrawRule(canvas, left + cluster + RuleGap, left + cluster + RuleGap + RuleLength, cy);
+
+        if (stars == 1)
+        {
+            using var path = StarShape.Path(Card.CenterX, cy, _radius);
+            using var gold = new SKPaint { Color = StarShape.Color, IsAntialias = true };
+            canvas.DrawPath(path, gold);
+            return;
+        }
 
         using var empty = new SKPaint { Color = _empty, IsAntialias = true };
         using var full = new SKPaint { Color = StarShape.Color, IsAntialias = true };
 
         for (var i = 0; i < 5; i++)
         {
+            var x = left + _radius + (i * step);
             using var path = StarShape.Path(x, cy, _radius);
             canvas.DrawPath(path, empty);
 
@@ -136,13 +153,29 @@ internal sealed class StarRating : IStoryLine
                 canvas.DrawPath(path, full);
                 canvas.Restore();
             }
-
-            x += step;
         }
     }
 
     public void Dispose()
     {
+    }
+
+    /// <summary>A rule that fades out towards the edge of the card.</summary>
+    private static void DrawRule(SKCanvas canvas, float innerX, float outerX, float y)
+    {
+        using var paint = new SKPaint
+        {
+            IsAntialias = true,
+            StrokeWidth = RuleWeight,
+            Shader = SKShader.CreateLinearGradient(
+                new SKPoint(outerX, y),
+                new SKPoint(innerX, y),
+                new[] { StarShape.Color.WithAlpha(0), StarShape.Color.WithAlpha(RuleAlpha) },
+                new[] { 0f, 1f },
+                SKShaderTileMode.Clamp)
+        };
+
+        canvas.DrawLine(outerX, y, innerX, y, paint);
     }
 }
 

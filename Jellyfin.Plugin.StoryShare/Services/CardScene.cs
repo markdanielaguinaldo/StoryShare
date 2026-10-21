@@ -34,6 +34,9 @@ internal sealed class CardScene : IDisposable
     /// <summary>Blurred, oversized backdrop. Null means the flat gradient is used instead.</summary>
     public SKImage? BackgroundLayer { get; init; }
 
+    /// <summary>Scales the photographic background's scrim; Review lowers it to keep the blur's colour.</summary>
+    public float BackgroundScrim { get; init; } = 1f;
+
     /// <summary>Static decoration drawn beneath the artwork — the record's base, the fanned-out stack.</summary>
     public SKImage? DecorLayer { get; init; }
 
@@ -113,6 +116,9 @@ internal sealed class CardScene : IDisposable
 
     /// <summary>Corner radius equal to half the side turns the clip into a circle.</summary>
     public bool ArtBorder { get; init; } = true;
+
+    /// <summary>Override for the cover's hairline. Defaults to the accent colour.</summary>
+    public SKColor? ArtBorderColor { get; init; }
 
     public bool Sweep { get; init; } = true;
 
@@ -436,12 +442,18 @@ internal sealed class CardScene : IDisposable
         // on top of it. Full bleed shows its picture sharp and edge to edge, so it
         // has no background layer at all — it draws that picture as its art panel,
         // which is what gives it the same movement every other style has.
+        var scrimScale = Math.Clamp(BackgroundScrim, 0f, 1f);
         using (var scrim = new SKPaint
         {
             Shader = SKShader.CreateLinearGradient(
                 new SKPoint(0, 0),
                 new SKPoint(0, Card.Height),
-                new[] { new SKColor(0, 0, 0, 190), new SKColor(0, 0, 0, 150), new SKColor(0, 0, 0, 225) },
+                new[]
+                {
+                    new SKColor(0, 0, 0, (byte)(190 * scrimScale)),
+                    new SKColor(0, 0, 0, (byte)(150 * scrimScale)),
+                    new SKColor(0, 0, 0, (byte)(225 * scrimScale))
+                },
                 new[] { 0f, 0.5f, 1f },
                 SKShaderTileMode.Clamp)
         })
@@ -472,7 +484,7 @@ internal sealed class CardScene : IDisposable
             canvas.DrawRect(full, recolour);
         }
 
-        using var deepen = new SKPaint { Color = background.Bottom.WithAlpha(48) };
+        using var deepen = new SKPaint { Color = background.Bottom.WithAlpha((byte)(48 * scrimScale)) };
         canvas.DrawRect(full, deepen);
     }
 
@@ -555,7 +567,7 @@ internal sealed class CardScene : IDisposable
                 Style = SKPaintStyle.Stroke,
                 StrokeWidth = 3f,
                 IsAntialias = true,
-                Color = Palette.Accent.WithAlpha(120)
+                Color = ArtBorderColor ?? Palette.Accent.WithAlpha(120)
             };
             canvas.DrawRoundRect(rounded, border);
         }

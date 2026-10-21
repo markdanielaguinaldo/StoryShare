@@ -117,7 +117,14 @@ await Save("bg-nonsense", movie, new StoryCardOptions { Theme = CardTheme.VibeMe
 // keep the printing legible — the same trap Polaroid's caption fell into.
 await Save("bg-paper-ticket", movie, new StoryCardOptions { Theme = CardTheme.Ticket, Background = "paper" });
 await Save("bg-royal-ticket", movie, new StoryCardOptions { Theme = CardTheme.Ticket, Background = "royal" });
-await Save("bg-paper-review", movie, new StoryCardOptions { Theme = CardTheme.Review, Background = "paper", Comment = "dark type on pale stock" });
+await Save("bg-paper-review", movie, new StoryCardOptions { Theme = CardTheme.Review, Background = "paper", Comment = "a pale preset tints the blurred backdrop" });
+// The hardest Review layout: the cover gives up height rather than the pill.
+await Save("review-long-comment", longTitle, new StoryCardOptions
+{
+    Theme = CardTheme.Review,
+    Comment = "This is a deliberately long review so the poster has to shrink and the body copy has to wrap onto four full lines without crowding the Now playing pill at the bottom of the card."
+});
+await Save("review-no-footer", movie, new StoryCardOptions { Theme = CardTheme.Review, FooterText = string.Empty, Comment = "no pill, more room" });
 await Save("bg-teal-crate", track, new StoryCardOptions { Theme = CardTheme.Cassette, Background = "teal" });
 
 // A per-render footer override has to get the same placeholder treatment the
@@ -204,7 +211,8 @@ Console.WriteLine($"vinyl spin slower than before      : {rpm < 30d}");
 // the way Ticket does, and for a long time that meant Float, Pulse and Auto all
 // produced exactly the same video — a test that only ever looked at Ticket had no
 // way of noticing.
-foreach (var moveTheme in new[] { CardTheme.Ticket, CardTheme.FullBleed, CardTheme.Cassette, CardTheme.VibeMeter })
+// Review's backdrop, glow and pill all have to meet themselves at the seam.
+foreach (var moveTheme in new[] { CardTheme.Ticket, CardTheme.FullBleed, CardTheme.Cassette, CardTheme.Review })
 {
     foreach (var animation in new[] { CardAnimation.Float, CardAnimation.Pulse })
     {
@@ -262,7 +270,7 @@ foreach (var moveTheme in new[] { CardTheme.Ticket, CardTheme.FullBleed, CardThe
 
 // A still is the scene at phase 0 whatever the animation, so the picture must not
 // change with it — otherwise the dialog would show one card and share another.
-foreach (var stillTheme in new[] { CardTheme.Ticket, CardTheme.FullBleed, CardTheme.Cassette, CardTheme.VibeMeter })
+foreach (var stillTheme in new[] { CardTheme.Ticket, CardTheme.FullBleed, CardTheme.Cassette, CardTheme.Review })
 {
     var stillAuto = await renderer.RenderAsync(movie, new StoryCardOptions { Theme = stillTheme }, SKEncodedImageFormat.Png, CancellationToken.None);
     foreach (var animation in new[] { CardAnimation.Float, CardAnimation.Pulse })

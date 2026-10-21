@@ -46,7 +46,7 @@ public static class CardThemes
         // slot shipped as Cassette and its number travels in every share link and
         // saved setting, so the member keeps the old name and the label does not.
         new(CardTheme.Cassette, "Crate", "Cover at the front of a crate, sleeves receding behind it."),
-        new(CardTheme.Review, "Review", "Framed review card with a five-star row and your caption.")
+        new(CardTheme.Review, "Review", "Blurred artwork, a glowing cover, a star score and your caption.")
     };
 }
 

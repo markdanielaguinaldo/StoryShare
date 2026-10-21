@@ -154,7 +154,8 @@
             'backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;padding:24px;}',
             '.storyshare-panel{position:relative;background:#16181d;color:#f4f6f8;border-radius:14px;',
             'max-width:920px;width:100%;max-height:92vh;overflow:auto;display:flex;gap:24px;padding:24px;',
-            'flex-wrap:wrap;box-shadow:0 24px 60px rgba(0,0,0,.6);}',
+            // Centre the preview on its own row when the columns wrap on a phone.
+            'flex-wrap:wrap;justify-content:center;box-shadow:0 24px 60px rgba(0,0,0,.6);}',
             '.storyshare-close{position:absolute;top:8px;right:10px;background:none;border:0;color:#f4f6f8;',
             'font-size:28px;line-height:1;cursor:pointer;opacity:.6;padding:2px 10px;}',
             '.storyshare-close:hover{opacity:1;}',

@@ -261,6 +261,9 @@ public class StoryShareController : ControllerBase
             return NotFound();
         }
 
+        // Revalidate: a cached dialog would outlive a plugin update.
+        Response.Headers.CacheControl = "no-cache";
+
         return File(stream, "application/javascript");
     }
 
