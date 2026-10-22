@@ -30,7 +30,7 @@ animation, and an optional tagline caption. [Watch the full-quality demo](docs/d
 
 <table>
 <tr>
-<td width="33%" valign="top"><a href="docs/samples/review.jpg"><img src="docs/samples/review.jpg" width="260" alt="Review style: The Penguin, its poster above a five-star row"></a></td>
+<td width="33%" valign="top"><a href="docs/samples/review.mp4"><img src="docs/samples/review.gif" width="260" alt="Review style: VisionQuest, its poster above a five-star row"></a></td>
 <td width="33%" valign="top"><a href="docs/samples/stack.jpg"><img src="docs/samples/stack.jpg" width="260" alt="Stack style: a cover fanned out over two more cards"></a></td>
 <td width="33%" valign="top"><a href="docs/samples/fullbleed-pulse.mp4"><img src="docs/samples/fullbleed-pulse.gif" width="260" alt="Full bleed style animated with Pulse"></a></td>
 </tr>
